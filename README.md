@@ -11,8 +11,9 @@ npm install
 ### Start the app in development mode (hot-code reloading, error reporting, etc.)
 
 ```bash
+# to use it you need to install quasar cli
 quasar dev
-# or if not work
+# or just use
 npx quasar dev
 ```
 
