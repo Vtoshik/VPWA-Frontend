@@ -1,5 +1,5 @@
 <template>
-    <q-item clickable class="user-bar" style="min-width: 265px; background-color: #2f3136; border-radius: 12px; padding: 8px;">
+    <q-item clickable class="user-bar" style="min-width: 240px; background-color: #2f3136; border-radius: 12px; padding: 8px;">
     <q-avatar size="40px" rounded>
       <img src="https://cdn.quasar.dev/img/avatar.png">
     </q-avatar>
