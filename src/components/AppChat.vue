@@ -1,85 +1,41 @@
 <template>
     <div class="chat-messages">
       <q-chat-message
-        name="me"
-        :text="['hey, how are you? ']"
-        stamp="7 minutes ago"
-        sent
+        v-for="message in messages"
+        :key="message.stamp + message.name"
+        :name="message.name"
+        :text="message.text"
+        :stamp="message.stamp"
+        :sent="message.sent"
         bg-color="white"
       />
-      <q-chat-message
-        name="Jane"
-        :text="['doing fine, how are you?']"
-        stamp="4 minutes ago"
-        bg-color="white"
-      />
-      <q-chat-message
-        name="me"
-        :text="['hey, how are you? ']"
-        stamp="7 minutes ago"
-        sent
-        bg-color="white"
-      />
-      <q-chat-message
-        name="Jane"
-        :text="['doing fine, how are you?']"
-        stamp="4 minutes ago"
-        bg-color="white"
-      />
-      <q-chat-message
-        name="me"
-        :text="['hey, how are you? ']"
-        stamp="7 minutes ago"
-        sent
-        bg-color="white"
-      />
-      <q-chat-message
-        name="Jane"
-        :text="['doing fine, how are you?']"
-        stamp="4 minutes ago"
-        bg-color="white"
-      />
-      <q-chat-message
-        name="me"
-        :text="['hey, how are you? ']"
-        stamp="7 minutes ago"
-        sent
-        bg-color="white"
-      />
-      <q-chat-message
-        name="Jane"
-        :text="['doing fine, how are you?']"
-        stamp="4 minutes ago"
-        bg-color="white"
-      />
-      <q-chat-message
-        name="me"
-        :text="['hey, how are you? ']"
-        stamp="7 minutes ago"
-        sent
-        bg-color="white"
-      />
-      <q-chat-message
-        name="Jane"
-        :text="['doing fine, how are you?']"
-        stamp="4 minutes ago"
-        bg-color="white"
-      />
-      <q-chat-message
-        name="me"
-        :text="['hey, how are you? ']"
-        stamp="7 minutes ago"
-        sent
-        bg-color="white"
-      />
-      <q-chat-message
-        name="Jane"
-        :text="['doing fine, how are you?']"
-        stamp="4 minutes ago"
-        bg-color="white"
-      />
+      
     </div>
 </template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+
+  type Message = {
+    name: string,
+    text: string[],
+    stamp: string,
+    sent?:boolean,
+  }
+
+  //Load messages from JSON file
+  const messages = ref<Message[]>([]);
+  
+  onMounted(async () => {
+    try{
+      const response = await fetch('/src/assets/test-messages/mock-messages.json');
+      messages.value = await response.json();
+    }catch(err){
+      console.log('Error loading mock messages:', err);
+    }
+  })
+
+</script>
 
 <style scoped>
 .chat-messages {
