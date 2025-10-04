@@ -1,5 +1,6 @@
 <template>
   <q-layout view="lHh Lpr lFf" style="height: 100vh;">
+
     <!--header above chat area-->
     <q-header elevated class="bg-grey-9">
       <q-toolbar>
@@ -20,10 +21,10 @@
       content-class="drawer-content"
     >
       <div class="drawer-inner bg-secondary">
-        <div class="drawer-header">Essential Links</div>
+        <div class="drawer-header">Channels</div>
         <q-scroll-area class="drawer-scroll">
           <q-list>
-            <EssentialLink v-for="link in linksList" :key="link.title" v-bind="link" />
+            <Channel v-for="channel in channels" :key="channel.id" :channel="channel" />
           </q-list>
         </q-scroll-area>
         <div class="drawer-userbar-container">
@@ -32,146 +33,44 @@
       </div>
     </q-drawer>
 
-    <!--center area where must be chat-->
+    <!--center area where are chat-->
     <q-page-container class="bg-primary full-height">
       <router-view />
     </q-page-container>
+
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import EssentialLink, { type EssentialLinkProps } from 'components/EssentialLink.vue';
+import { ref, onMounted } from 'vue';
+import Channel from 'components/ChannelComponent.vue';
 import UserBar from 'src/components/UserBar.vue';
 
-//Better not to open
-const linksList: EssentialLinkProps[] = [
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-  {
-    title: 'Docs',
-    caption: 'quasar.dev',
-    icon: 'school',
-    link: 'https://quasar.dev',
-  },
-  {
-    title: 'Github',
-    caption: 'github.com/quasarframework',
-    icon: 'code',
-    link: 'https://github.com/quasarframework',
-  },
-];
+type Channel = {
+  id: string,
+  name: string,
+  chats: {
+    id: string,
+    name: string,
+    messageFile: string,
+  }[]
+}
 
 const leftDrawerOpen = ref(false);
+const channels = ref<Channel[]>([]);
+
+onMounted(async () => {
+  try {
+    const response = await fetch('/src/assets/test-data/mock-channels.json');
+    const data = await response.json(); // Wait for the JSON to resolve
+    channels.value = data.channels; // Assign the 'channels' array from the resolved data
+  } catch (error) {
+    console.error('Error loading channels:', error);
+  }
+});
 
 function toggleLeftDrawer() {
-  if (leftDrawerOpen.value === false){
+  if (leftDrawerOpen.value === false) {
     leftDrawerOpen.value = !leftDrawerOpen.value;
   }
 }

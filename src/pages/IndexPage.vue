@@ -1,17 +1,16 @@
 <template>
   <q-page class="chat-page">
     <div class="chat-col">
-      <q-scroll-area class="chat-main">
-        <Chat />
-      </q-scroll-area>
-      <CommandLine class="chat-input" />
+      <div class="welcome-message">
+        <h5 class="text-white text-center">Welcome to Discord Copy!</h5>
+        <p class="text-grey-5 text-center">Please select a chat from the sidebar to start messaging.</p>
+      </div>
     </div>
   </q-page>
 </template>
 
 <script setup lang="ts">
-import Chat from 'src/components/AppChat.vue';
-import CommandLine from 'src/components/CommandLine.vue';
+
 </script>
 
 <style scoped>
@@ -21,7 +20,7 @@ import CommandLine from 'src/components/CommandLine.vue';
   flex-direction: column;
   padding: 0;
   background: #26282b;
-  overflow: hidden; /* Prevent page-level scrolling */
+  overflow: hidden;
 }
 
 .chat-col {
@@ -29,19 +28,11 @@ import CommandLine from 'src/components/CommandLine.vue';
   flex-direction: column;
   flex: 1 1 auto;
   height: 100%;
+  justify-content: center;
+  align-items: center;
 }
 
-.chat-main {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-end;
-}
-
-.chat-input {
-  flex: 0 0 auto;
-  padding-bottom: 16px;
-  background: transparent;
+.welcome-message {
+  text-align: center;
 }
 </style>
