@@ -1,30 +1,34 @@
 <template>
-  <q-layout view="lHh Lpr lFf" style="height: 100vh;">
-
+  <q-layout view="lHh Lpr lFf" style="height: 100vh">
     <!--header above chat area-->
     <q-header elevated class="bg-grey-9">
       <q-toolbar>
         <q-btn flat dense round icon="menu" aria-label="Menu" @click="toggleLeftDrawer" />
-        <q-toolbar-title class="absolute-center"> Discord Copy </q-toolbar-title>
+        <q-toolbar-title class="absolute-center">Discord Copy</q-toolbar-title>
         <div>Text</div>
       </q-toolbar>
     </q-header>
 
     <!--left side bar-->
-    <q-drawer 
-      v-model="leftDrawerOpen" 
-      show-if-above 
+    <q-drawer
+      v-model="leftDrawerOpen"
+      show-if-above
       class="bg-secondary"
       :width="260"
       :breakpoint="767"
-      bordered 
+      bordered
       content-class="drawer-content"
     >
       <div class="drawer-inner bg-secondary">
         <div class="drawer-header">Channels</div>
         <q-scroll-area class="drawer-scroll">
           <q-list>
-            <Channel v-for="channel in channels" :key="channel.id" :channel="channel" />
+            <ChannelComponent
+              v-for="channel in channels"
+              :key="channel.id"
+              :channel="channel"
+              :is-selected="selectedChannel?.id === channel.id"
+            />
           </q-list>
         </q-scroll-area>
         <div class="drawer-userbar-container">
@@ -37,33 +41,38 @@
     <q-page-container class="bg-primary full-height">
       <router-view />
     </q-page-container>
-
   </q-layout>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import Channel from 'components/ChannelComponent.vue';
 import UserBar from 'src/components/UserBar.vue';
+import { useRouter } from 'vue-router';
+import ChannelComponent from 'src/components/ChannelComponent.vue';
 
 type Channel = {
-  id: string,
-  name: string,
-  chats: {
-    id: string,
-    name: string,
-    messageFile: string,
-  }[]
-}
+  id: string;
+  name: string;
+  messageFile: string;
+};
 
 const leftDrawerOpen = ref(false);
 const channels = ref<Channel[]>([]);
+const router = useRouter();
+const selectedChannel = ref<Channel | null>(null);
 
 onMounted(async () => {
   try {
     const response = await fetch('/src/assets/test-data/mock-channels.json');
-    const data = await response.json(); // Wait for the JSON to resolve
-    channels.value = data.channels; // Assign the 'channels' array from the resolved data
+    const data = await response.json();
+    channels.value = data.channels;
+    if (channels.value.length > 0) {
+      selectedChannel.value = channels.value[0] as Channel;
+      void router.push({
+        path: `/channel/${selectedChannel.value.id}`,
+        query: { file: selectedChannel.value.messageFile },
+      });
+    }
   } catch (error) {
     console.error('Error loading channels:', error);
   }
@@ -102,7 +111,7 @@ function toggleLeftDrawer() {
   padding: 16px 16px 8px 16px;
   color: white;
   font-weight: 500;
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
   z-index: 2;
 }
 
