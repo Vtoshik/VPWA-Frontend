@@ -1,0 +1,108 @@
+{
+  "general": [
+    {
+      "id": "user1",
+      "firstName": "John",
+      "lastName": "Doe",
+      "nickName": "johnd",
+      "email": "john.doe@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user2",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "nickName": "janes",
+      "email": "jane.smith@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user3",
+      "firstName": "Bob",
+      "lastName": "Wilson",
+      "nickName": "bobw",
+      "email": "bob.wilson@example.com",
+      "status": "DND",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user4",
+      "firstName": "Alice",
+      "lastName": "Brown",
+      "nickName": "aliceb",
+      "email": "alice.brown@example.com",
+      "status": "offline",
+      "isTyping": false,
+      "typingText": ""
+    }
+  ],
+  "dev": [
+    {
+      "id": "user1",
+      "firstName": "John",
+      "lastName": "Doe",
+      "nickName": "johnd",
+      "email": "john.doe@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user5",
+      "firstName": "Edward",
+      "lastName": "Tech",
+      "nickName": "edtech",
+      "email": "ed.tech@example.com",
+      "status": "online",
+      "isTyping": true,
+      "typingText": "Hey guys, I'm working on the new feature..."
+    },
+    {
+      "id": "user6",
+      "firstName": "Sarah",
+      "lastName": "Code",
+      "nickName": "sarahc",
+      "email": "sarah.code@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    }
+  ],
+  "test": [
+    {
+      "id": "user1",
+      "firstName": "John",
+      "lastName": "Doe",
+      "nickName": "johnd",
+      "email": "john.doe@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user7",
+      "firstName": "Mike",
+      "lastName": "Tester",
+      "nickName": "miket",
+      "email": "mike.test@example.com",
+      "status": "DND",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user8",
+      "firstName": "Lisa",
+      "lastName": "QA",
+      "nickName": "lisaqa",
+      "email": "lisa.qa@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    }
+  ]
+}

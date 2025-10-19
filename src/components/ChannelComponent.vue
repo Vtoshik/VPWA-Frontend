@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, ref } from 'vue';
+import { defineProps, defineEmits, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const props = defineProps<{
@@ -21,10 +21,15 @@ const props = defineProps<{
   isSelected?: boolean;
 }>();
 
+const emit = defineEmits<{
+  'channel-selected': [channel: { id: string; name: string; messageFile: string }];
+}>();
+
 const router = useRouter();
 const isHighlighted = ref(false);
 
 function selectChannel() {
+  emit('channel-selected', props.channel);
   void router.push({
     path: `/channel/${props.channel.id}`,
     query: { file: props.channel.messageFile },
