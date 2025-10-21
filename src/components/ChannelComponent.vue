@@ -1,30 +1,44 @@
 <template>
-  <q-expansion-item
-    expand-separator
-    :label="channel.name"
-    header-class="text-white"
-    default-opened
-  >
-    <q-list>
-      <ChatComponent v-for="chat in channel.chats" :key="chat.id" :chat="chat" />
-    </q-list>
-  </q-expansion-item>
+  <q-item clickable class="channel-item" @click="selectChannel">
+    <q-item-section>
+      <q-item-label :class="{ highlighted: isHighlighted }">
+        {{ channel.name }}
+      </q-item-label>
+    </q-item-section>
+  </q-item>
 </template>
 
 <script setup lang="ts">
-import ChatComponent from './ChatComponent.vue';
-import { defineProps } from 'vue';
+import { defineProps, defineEmits, ref } from 'vue';
+import { useRouter } from 'vue-router';
 
-//eslint-disable-next-line @typescript-eslint/no-unused-vars
 const props = defineProps<{
   channel: {
     id: string;
     name: string;
-    chats: { 
-      id: string; 
-      name: string; 
-      messageFile: string 
-    }[];
+    messageFile: string;
   };
+  isSelected?: boolean;
 }>();
+
+const emit = defineEmits<{
+  'channel-selected': [channel: { id: string; name: string; messageFile: string }];
+}>();
+
+const router = useRouter();
+const isHighlighted = ref(false);
+
+function selectChannel() {
+  emit('channel-selected', props.channel);
+  void router.push({
+    path: `/channel/${props.channel.id}`,
+    query: { file: props.channel.messageFile },
+  });
+}
 </script>
+
+<style scoped>
+.channel-item {
+  color: white;
+}
+</style>

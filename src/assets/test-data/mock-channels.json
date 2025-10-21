@@ -3,29 +3,17 @@
     {
       "id": "general",
       "name": "General",
-      "chats": [
-        {
-          "id": "chat1",
-          "name": "Random Chat",
-          "messageFile": "/src/assets/test-data/mock-messages.json"
-        },
-        {
-          "id": "chat2",
-          "name": "Team Talk",
-          "messageFile": "/src/assets/test-data/mock-messages2.json"
-        }
-      ]
+      "messageFile": "/src/assets/test-data/mock-messages.json"
     },
     {
       "id": "dev",
       "name": "Development",
-      "chats": [
-        {
-          "id": "chat3",
-          "name": "Bug Fixes",
-          "messageFile": "/src/assets/test-data/mock-messages3.json"
-        }
-      ]
+      "messageFile": "/src/assets/test-data/mock-messages2.json"
+    },
+    {
+      "id": "test",
+      "name": "Test",
+      "messageFile": "/src/assets/test-data/mock-messages3.json"
     }
   ]
 }
