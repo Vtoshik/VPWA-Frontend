@@ -59,18 +59,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, defineProps, watch } from 'vue';
-
-export type Member = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  nickName: string;
-  email: string;
-  status: 'online' | 'DND' | 'offline';
-  isTyping: boolean;
-  typingText: string;
-};
+import { ref, watch } from 'vue';
+import type { Member } from 'src/components/models.ts';
 
 const props = defineProps<{
   members: Member[];
@@ -194,7 +184,7 @@ watch(
 }
 
 .typing-preview {
-  background: #40444b;
+  background: #383a40;
   border-radius: 8px;
   padding: 16px;
   min-height: 100px;

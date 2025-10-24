@@ -1,25 +1,14 @@
 [
   {
-    "name": "me",
-    "text": ["hey, how are you?"],
-    "stamp": "7 minutes ago",
-    "sent": true
-  },
-  {
     "name": "Jane",
-    "text": ["doing fine, how are you?"],
-    "stamp": "4 minutes ago"
+    "text": ["Hey everyone! Welcome to the channel"],
+    "stamp": "10 minutes ago"
   },
   {
-    "name": "me",
-    "text": ["hey, how are you?"],
-    "stamp": "7 minutes ago",
-    "sent": true
-  },
-  {
-    "name": "Jane",
-    "text": ["doing fine, how are you?"],
-    "stamp": "4 minutes ago"
+    "name": "Bob",
+    "text": ["Hi @johnd, can you help me with the project?"],
+    "stamp": "8 minutes ago",
+    "mentionedUsers": ["johnd"]
   },
   {
     "name": "me",
@@ -29,30 +18,30 @@
   },
   {
     "name": "Jane",
-    "text": ["doing fine, how are you?"],
+    "text": ["@johnd @janes check out this new feature!"],
+    "stamp": "5 minutes ago",
+    "mentionedUsers": ["johnd", "janes"]
+  },
+  {
+    "name": "Alice",
+    "text": ["Great work team!"],
     "stamp": "4 minutes ago"
   },
   {
+    "name": "Bob",
+    "text": ["Thanks! @johnd your feedback was helpful"],
+    "stamp": "3 minutes ago",
+    "mentionedUsers": ["johnd"]
+  },
+  {
     "name": "me",
-    "text": ["hey, how are you?"],
-    "stamp": "7 minutes ago",
+    "text": ["No problem, happy to help!"],
+    "stamp": "2 minutes ago",
     "sent": true
   },
   {
     "name": "Jane",
-    "text": ["doing fine, how are you?"],
-    "stamp": "4 minutes ago"
-  },
-  {
-    "name": "me",
-    "text": ["hey, how are you?"],
-    "stamp": "7 minutes ago",
-    "sent": true
-  },
-  {
-    "name": "Jane",
-    "text": ["doing fine, how are you?"],
-    "stamp": "4 minutes ago"
+    "text": ["Let's schedule a meeting tomorrow"],
+    "stamp": "1 minute ago"
   }
-  
 ]

@@ -1,33 +1,47 @@
 <template>
   <div class="chat-messages">
     <q-chat-message
-      v-for="message in messages"
-      :key="message.stamp + message.name"
+      v-for="(message, index) in displayMessages"
+      :key="message.stamp + message.name + index"
       :name="message.name"
       :text="message.text"
       :stamp="message.stamp"
       :sent="message.sent"
-      bg-color="white"
+      :bg-color="getMessageBgColor(message)"
+      :text-color="'white'"
+      :class="{ 'mentioned-message': isMentionedInMessage(message) }"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, defineProps, defineEmits, onMounted } from 'vue';
-
-type Message = {
-  name: string;
-  text: string[];
-  stamp: string;
-  sent?: boolean;
-};
+import { ref, watch, onMounted, computed } from 'vue';
+import type { Message } from 'src/components/models.ts';
 
 const props = defineProps<{
   messageFile: string;
+  allMessages?: Message[];
+  currentUserNickname?: string;
 }>();
 
 const emits = defineEmits(['update-messages']);
 const messages = ref<Message[]>([]);
+const displayMessages = computed(() => props.allMessages || messages.value);
+
+function isMentionedInMessage(message: Message): boolean {
+  if (!props.currentUserNickname || !message.mentionedUsers) return false;
+  return message.mentionedUsers.includes(props.currentUserNickname);
+}
+
+function getMessageBgColor(message: Message): string {
+  if (isMentionedInMessage(message)) {
+    return 'orange-9';
+  }
+  if (message.isCommand) {
+    return 'info';
+  }
+  return message.sent ? 'accent' : 'grey-8';
+}
 
 async function loadMessages(file: string) {
   try {
@@ -64,5 +78,20 @@ onMounted(() => loadMessages(props.messageFile));
   flex-direction: column;
   gap: 16px;
   padding: 16px;
+}
+
+.mentioned-message :deep(.q-message-text) {
+  border-left: 4px solid #ff9800;
+  box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
+  animation: pulse-mention 0.6s ease-out;
+}
+
+@keyframes pulse-mention {
+  0% {
+    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(255, 152, 0, 0);
+  }
 }
 </style>
