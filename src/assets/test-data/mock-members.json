@@ -11,16 +11,6 @@
       "typingText": ""
     },
     {
-      "id": "user2",
-      "firstName": "Jane",
-      "lastName": "Smith",
-      "nickName": "janes",
-      "email": "jane.smith@example.com",
-      "status": "online",
-      "isTyping": false,
-      "typingText": ""
-    },
-    {
       "id": "user3",
       "firstName": "Bob",
       "lastName": "Wilson",

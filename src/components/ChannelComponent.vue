@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineProps, defineEmits, ref } from 'vue';
+import { defineEmits, ref } from 'vue';
 import { useRouter } from 'vue-router';
 
 const props = defineProps<{
