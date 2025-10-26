@@ -22,8 +22,6 @@ const router = useRouter();
 
 const loginUser = (): void => {
   const users = JSON.parse(localStorage.getItem('users') || '[]') as Member[];
-  console.log('All users:', users);
-
   const user = users.find((u) => u.email === email.value && u.password === password.value);
 
   if (!user) {

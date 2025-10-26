@@ -47,16 +47,21 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { QScrollArea } from 'quasar';
 import ChatArea from 'src/components/ChatArea.vue';
 import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
 import type { Message, Member, Command } from 'src/components/models';
-import { getCurrentUser, isUserInChannel, addUserToChannel } from 'src/utils/auth';
+import { getCurrentUser, isUserInChannel } from 'src/utils/auth';
 import { channelExists, isChannelPrivate } from 'src/utils/channels';
+import { useCurrentUser } from 'src/utils/useCurrentUser';
 
 const route = useRoute();
+const router = useRouter();
+
+// Reactive user state
+const { joinChannel, leaveChannel } = useCurrentUser();
 const showMembersPanel = ref(true);
 const messages = ref<Message[]>([]);
 const localMessages = ref<Message[]>([]);
@@ -259,44 +264,22 @@ function executeCommand(command: Command) {
         resultText = 'Usage: /join <channel>';
         break;
       }
-      const channelToJoin = command.args[0] as string;
-      //handleJoinChannel(channelToJoin);
-      const user = getCurrentUser();
-
-      if (!user) {
-        resultText = 'Error: User not logged in';
-        break;
-      }
-
-      if (!channelExists(channelToJoin)) {
-        resultText = `Error: Channel "${channelToJoin}" does not exist`;
-        break;
-      }
-
-      if (isChannelPrivate(channelToJoin)) {
-        resultText = `Error: Channel "${channelToJoin}" is private. You need an invitation to join.`;
-        break;
-      }
-
-      if (isUserInChannel(channelToJoin)) {
-        resultText = `You are already in channel: ${channelToJoin}`;
-        break;
-      }
-
-      const success = addUserToChannel(user.id, channelToJoin);
-      if (success) {
-        resultText = `Successfully joined channel: ${channelToJoin}`;
-      } else {
-        resultText = `Error: Failed to join channel: ${channelToJoin}`;
-      }
+      const channelToJoin = command.args[0]?.toLowerCase() as string;
+      resultText = handleJoinChannel(channelToJoin);
       break;
     }
     case 'quit':
       resultText = 'Quitting current channel...';
       break;
-    case 'cancel':
-      resultText = 'Leaving channel...';
+    case 'cancel': {
+      if (command.args.length === 0) {
+        resultText += ' Usage: /cancel <channel>';
+        break;
+      }
+      const channelToCancel = command.args[0]?.toLowerCase() as string;
+      resultText = handleCancelChannel(channelToCancel);
       break;
+    }
     case 'kick':
       resultText =
         command.args.length > 0 ? `Kicking user: ${command.args[0]}` : 'Usage: /kick <user>';
@@ -326,13 +309,66 @@ function executeCommand(command: Command) {
   localMessages.value.push(commandResult);
 }
 
-// function handleJoinChannel(channelId: string) {
-//   const user = getCurrentUser();
+function handleJoinChannel(channelId: string) {
+  const user = getCurrentUser();
+  let resultText = '';
 
-//   if (!user) {
-//     resultText = 'Error: User not logged in';
-//   }
-// }
+  if (!user) {
+    resultText = 'Error: User not logged in';
+    return resultText;
+  }
+
+  if (!channelExists(channelId)) {
+    resultText = `Error: Channel "${channelId}" does not exist`;
+    return resultText;
+  }
+
+  if (isChannelPrivate(channelId)) {
+    resultText = `Error: Channel "${channelId}" is private. You need an invitation to join.`;
+    return resultText;
+  }
+
+  if (isUserInChannel(channelId)) {
+    resultText = `You are already in channel: ${channelId}`;
+    return resultText;
+  }
+
+  const success = joinChannel(user.id, channelId);
+  if (success) {
+    resultText = `Successfully joined channel: ${channelId}`;
+  } else {
+    resultText = `Error: Failed to join channel: ${channelId}`;
+  }
+  return resultText;
+}
+
+function handleCancelChannel(channelId: string) {
+  const user = getCurrentUser();
+  let resultText = '';
+  if (!user) {
+    resultText = 'Error: User not logged in';
+    return resultText;
+  }
+
+  if (!isUserInChannel(channelId)) {
+    resultText = `You are not in channel: ${channelId}`;
+    return resultText;
+  }
+
+  const success = leaveChannel(user.id, channelId);
+  if (!success) {
+    resultText = `Error: Failed to leave channel: ${channelId}`;
+  } else {
+    resultText = `Successfully left channel: ${channelId}`;
+
+    const currentChannelId = route.params.id as string;
+    if (channelId === currentChannelId) {
+      void router.push('/');
+    }
+  }
+
+  return resultText;
+}
 
 // Clear local messages
 watch(channelId, () => {
