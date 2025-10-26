@@ -18,7 +18,13 @@
     <div class="channel-content">
       <!-- Chat area -->
       <div class="chat-area-wrapper">
-        <q-scroll-area class="chat-main">
+        <q-scroll-area ref="scrollAreaRef" class="chat-main" @scroll="handleScroll">
+          <!-- Loading indicator -->
+          <div v-if="isLoading" class="loading-older">
+            <q-spinner color="primary" size="24px" />
+            <span class="loading-text">Loading messages...</span>
+          </div>
+
           <ChatArea
             :message-file="messageFile"
             :all-messages="allMessages"
@@ -40,8 +46,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute } from 'vue-router';
+import { QScrollArea } from 'quasar';
 import ChatArea from 'src/components/ChatArea.vue';
 import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
@@ -53,6 +60,15 @@ const showMembersPanel = ref(true);
 const messages = ref<Message[]>([]);
 const localMessages = ref<Message[]>([]);
 const members = ref<{ [key: string]: Member[] }>({});
+const scrollAreaRef = ref<QScrollArea | null>(null);
+
+// Infinite scroll state
+const isLoading = ref(false);
+const hasMoreMessages = ref(true);
+const messageOffset = ref(0);
+const MESSAGE_LIMIT = 20;
+const isUserAtBottom = ref(true);
+const allMessagesFromFile = ref<Message[]>([]);
 
 const channelId = computed(() => (route.params.id as string) || 'general');
 const messageFile = computed(
@@ -71,10 +87,32 @@ onMounted(async () => {
   try {
     const membersResponse = await fetch('/src/assets/test-data/mock-members.json');
     members.value = await membersResponse.json();
+
+    await loadAllMessages();
   } catch (error) {
     console.error('Error loading members:', error);
   }
 });
+
+async function loadAllMessages() {
+  try {
+    const storedMessages = localStorage.getItem(messageFile.value);
+
+    if (storedMessages) {
+      allMessagesFromFile.value = JSON.parse(storedMessages);
+    } else {
+      const response = await fetch(messageFile.value);
+      allMessagesFromFile.value = await response.json();
+    }
+
+    const totalMessages = allMessagesFromFile.value.length;
+    messages.value = allMessagesFromFile.value.slice(-MESSAGE_LIMIT);
+    messageOffset.value = Math.max(0, totalMessages - MESSAGE_LIMIT);
+    hasMoreMessages.value = messageOffset.value > 0;
+  } catch (error) {
+    console.error('Error loading messages:', error);
+  }
+}
 
 // Watch for typing updates
 watch(
@@ -109,6 +147,67 @@ function toggleMembersPanel() {
   showMembersPanel.value = !showMembersPanel.value;
 }
 
+function scrollToBottom(instant = false) {
+  void nextTick(() => {
+    if (scrollAreaRef.value) {
+      const scrollTarget = scrollAreaRef.value.getScrollTarget();
+      const scrollHeight = scrollTarget.scrollHeight;
+      const duration = instant ? 0 : 300;
+      scrollAreaRef.value.setScrollPosition('vertical', scrollHeight, duration);
+    }
+  });
+}
+
+function handleScroll(info: {
+  verticalPosition: number;
+  verticalSize: number;
+  verticalContainerSize: number;
+}) {
+  const { verticalPosition, verticalSize, verticalContainerSize } = info;
+  const scrollBottom = verticalSize - verticalPosition - verticalContainerSize;
+  isUserAtBottom.value = scrollBottom < 100;
+
+  if (verticalPosition < 50 && !isLoading.value && hasMoreMessages.value) {
+    void loadOlderMessages();
+  }
+}
+
+async function loadOlderMessages() {
+  if (isLoading.value || !hasMoreMessages.value) return;
+
+  isLoading.value = true;
+
+  try {
+    const scrollTarget = scrollAreaRef.value?.getScrollTarget();
+    const oldScrollHeight = scrollTarget?.scrollHeight || 0;
+
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const toLoad = Math.min(MESSAGE_LIMIT, messageOffset.value);
+    const startIndex = messageOffset.value - toLoad;
+    const olderMessages = allMessagesFromFile.value.slice(startIndex, messageOffset.value);
+
+    if (olderMessages.length > 0) {
+      messages.value = [...olderMessages, ...messages.value];
+      messageOffset.value = startIndex;
+      hasMoreMessages.value = messageOffset.value > 0;
+    } else {
+      hasMoreMessages.value = false;
+    }
+
+    await nextTick();
+    if (scrollTarget) {
+      const newScrollHeight = scrollTarget.scrollHeight;
+      const scrollDiff = newScrollHeight - oldScrollHeight;
+      scrollAreaRef.value?.setScrollPosition('vertical', scrollDiff, 0);
+    }
+  } catch (error) {
+    console.error('Error loading older messages:', error);
+  } finally {
+    isLoading.value = false;
+  }
+}
+
 function addMessage(text: string) {
   const mentionedUsers = parseMentions(text);
 
@@ -125,7 +224,10 @@ function addMessage(text: string) {
 
   messages.value.push(newMessage);
   localStorage.setItem(messageFile.value, JSON.stringify(messages.value));
-  console.log('New message saved to localStorage for:', messageFile.value, newMessage);
+
+  if (isUserAtBottom.value) {
+    scrollToBottom();
+  }
 }
 
 function parseMentions(text: string): string[] {
@@ -139,10 +241,6 @@ function parseMentions(text: string): string[] {
     if (nickname && validNicknames.includes(nickname) && !mentioned.includes(nickname)) {
       mentioned.push(nickname);
     }
-  }
-
-  if (mentioned.length > 0) {
-    console.log(`📢 Mentioned users: ${mentioned.join(', ')}`);
   }
 
   return mentioned;
@@ -160,6 +258,8 @@ function executeCommand(command: Command) {
         command.args.length > 0 ? `Joining channel: ${command.args[0]}` : 'Usage: /join <channel>';
       break;
     case 'quit':
+      resultText = 'Quitting current channel...';
+      break;
     case 'cancel':
       resultText = 'Leaving channel...';
       break;
@@ -192,9 +292,22 @@ function executeCommand(command: Command) {
   localMessages.value.push(commandResult);
 }
 
+// Clear local messages
 watch(channelId, () => {
   localMessages.value = [];
+  scrollToBottom(true);
 });
+
+// Scroll down with new message
+watch(
+  messages,
+  () => {
+    if (isUserAtBottom.value) {
+      scrollToBottom(true);
+    }
+  },
+  { flush: 'post' },
+);
 </script>
 
 <style scoped>
@@ -273,6 +386,24 @@ watch(channelId, () => {
 .chat-input {
   flex: 0 0 auto;
   background: transparent;
+}
+
+/* Loading Indicator */
+.loading-older {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(79, 84, 92, 0.08);
+  border-radius: 8px;
+  margin: 16px;
+}
+
+.loading-text {
+  color: #b5bac1;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* Members Panel */

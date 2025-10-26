@@ -1,12 +1,3 @@
-export interface Todo {
-  id: number;
-  content: string;
-}
-
-export interface Meta {
-  totalCount: number;
-}
-
 export type Message = {
   name: string;
   text: string[];
@@ -15,7 +6,7 @@ export type Message = {
   isCommand?: boolean;
   isLocal?: boolean;
   channelId?: string;
-  mentionedUsers?: string[]; // Масив nickName користувачів, які згадані в повідомленні
+  mentionedUsers?: string[];
 };
 
 export type Member = {
@@ -33,6 +24,7 @@ export type Channel = {
   id: string;
   name: string;
   messageFile: string;
+  isPrivate: boolean;
 };
 
 export type MembersData = {

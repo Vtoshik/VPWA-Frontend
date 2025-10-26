@@ -1,7 +1,15 @@
 <template>
-  <q-item clickable class="channel-item" @click="selectChannel">
+  <q-item
+    clickable
+    class="channel-item"
+    :class="{ 'selected-channel': isSelected }"
+    @click="selectChannel"
+  >
+    <q-item-section avatar class="channel-icon">
+      <q-icon :name="channel.isPrivate === true ? 'lock' : 'tag'" size="20px" />
+    </q-item-section>
     <q-item-section>
-      <q-item-label :class="{ highlighted: isHighlighted }">
+      <q-item-label class="channel-name">
         {{ channel.name }}
       </q-item-label>
     </q-item-section>
@@ -9,24 +17,20 @@
 </template>
 
 <script setup lang="ts">
-import { defineEmits, ref } from 'vue';
+import { defineEmits } from 'vue';
 import { useRouter } from 'vue-router';
+import type { Channel } from './models';
 
 const props = defineProps<{
-  channel: {
-    id: string;
-    name: string;
-    messageFile: string;
-  };
+  channel: Channel;
   isSelected?: boolean;
 }>();
 
 const emit = defineEmits<{
-  'channel-selected': [channel: { id: string; name: string; messageFile: string }];
+  'channel-selected': [channel: Channel];
 }>();
 
 const router = useRouter();
-const isHighlighted = ref(false);
 
 function selectChannel() {
   emit('channel-selected', props.channel);
@@ -39,6 +43,46 @@ function selectChannel() {
 
 <style scoped>
 .channel-item {
-  color: white;
+  padding: 8px 12px;
+  margin: 2px 8px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.channel-item:hover {
+  background: rgba(79, 84, 92, 0.32);
+}
+
+.selected-channel {
+  background: rgba(79, 84, 92, 0.48);
+}
+
+.channel-icon {
+  min-width: 32px;
+  color: #949ba4;
+}
+
+.selected-channel .channel-icon {
+  color: #ffffff;
+}
+
+.channel-name {
+  color: #949ba4;
+  font-weight: 500;
+  font-size: 15px;
+  transition: color 0.2s ease;
+}
+
+.selected-channel .channel-name {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.channel-item:hover .channel-name {
+  color: #dcddde;
+}
+
+.channel-item:hover .channel-icon {
+  color: #dcddde;
 }
 </style>

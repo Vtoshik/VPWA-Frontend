@@ -3,17 +3,26 @@
     {
       "id": "general",
       "name": "General",
-      "messageFile": "/src/assets/test-data/mock-messages.json"
+      "messageFile": "/src/assets/test-data/mock-messages.json",
+      "isPrivate": false
     },
     {
       "id": "dev",
       "name": "Development",
-      "messageFile": "/src/assets/test-data/mock-messages2.json"
+      "messageFile": "/src/assets/test-data/mock-messages2.json",
+      "isPrivate": true
     },
     {
       "id": "test",
       "name": "Test",
-      "messageFile": "/src/assets/test-data/mock-messages3.json"
+      "messageFile": "/src/assets/test-data/mock-messages3.json",
+      "isPrivate": false
+    },
+    {
+      "id": "big-chat",
+      "name": "Big Chat",
+      "messageFile": "/src/assets/test-data/mock-messages-large.json",
+      "isPrivate": true
     }
   ]
 }
