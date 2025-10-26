@@ -14,35 +14,26 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Notify } from 'quasar';
-
-
-interface User {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  nickName: string;
-  status: string;
-  channels: string[];
-}
+import type { Member } from 'src/components/models';
 
 const email = ref('');
 const password = ref('');
 const router = useRouter();
 
 const loginUser = (): void => {
-  const users = JSON.parse(localStorage.getItem('users') || '[]') as User[];
-  const user = users.find(
-    (u) => u.email === email.value && u.password === password.value
-  );
+  const users = JSON.parse(localStorage.getItem('users') || '[]') as Member[];
+  console.log('All users:', users);
 
-  if (user) {
+  const user = users.find((u) => u.email === email.value && u.password === password.value);
+
+  if (!user) {
     Notify.create({ type: 'negative', message: 'Invalid email or password' });
+    return;
   }
 
   localStorage.setItem('currentUser', JSON.stringify(user));
-  router.push('/').catch(() => {});
+  Notify.create({ type: 'positive', message: `Welcome back, ${user.firstName}!` });
+  void router.push('/');
 };
 
 const goRegister = (): void => {

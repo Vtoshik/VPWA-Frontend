@@ -42,14 +42,14 @@ import { ref, onMounted, computed } from 'vue';
 import UserBar from 'src/components/UserBar.vue';
 import { useRouter } from 'vue-router';
 import ChannelComponent from 'src/components/ChannelComponent.vue';
-import type { Channel, CurrentUser } from 'src/components/models.ts';
-import { initMockUser } from 'src/utils/mockAuth';
+import type { Channel, Member } from 'src/components/models.ts';
+import { getCurrentUser } from 'src/utils/auth';
 
 const leftDrawerOpen = ref(false);
 const channels = ref<Channel[]>([]);
 const router = useRouter();
 const selectedChannel = ref<Channel | null>(null);
-const currentUser = ref<CurrentUser | null>(null);
+const currentUser = ref<Member | null>(null);
 
 const availableChannels = computed(() => {
   if (!currentUser.value) return [];
@@ -58,8 +58,13 @@ const availableChannels = computed(() => {
 
 onMounted(async () => {
   try {
-    currentUser.value = initMockUser();
+    currentUser.value = getCurrentUser();
 
+    if (!currentUser.value) {
+      console.warn('No authenticated user, redirecting to login');
+      void router.push('/auth/login');
+      return;
+    }
     const channelsResponse = await fetch('/src/assets/test-data/mock-channels.json');
     const channelsData = await channelsResponse.json();
     channels.value = channelsData.channels;

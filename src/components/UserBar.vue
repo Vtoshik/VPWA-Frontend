@@ -1,13 +1,11 @@
 <template>
   <q-item clickable class="user-bar">
     <q-avatar size="40px" rounded>
-      <img src="https://cdn.quasar.dev/img/avatar.png">
+      <img src="https://cdn.quasar.dev/img/avatar.png" />
     </q-avatar>
 
     <q-item-section class="user-info">
-      <div class="user-name">
-        {{ currentUser?.firstName }} {{ currentUser?.lastName }}
-      </div>
+      <div class="user-name">{{ currentUser?.firstName }} {{ currentUser?.lastName }}</div>
       <div class="user-status">Online</div>
     </q-item-section>
 
@@ -16,7 +14,6 @@
     <!-- Меню -->
     <q-menu v-model="menu">
       <q-list>
-
         <!-- Зміна імені -->
         <q-item clickable v-close-popup @click="openRenameDialog = true">
           <q-item-section>Change name</q-item-section>
@@ -26,7 +23,6 @@
         <q-item clickable v-close-popup @click="logoutUser">
           <q-item-section>Logout</q-item-section>
         </q-item>
-
       </q-list>
     </q-menu>
 
@@ -38,19 +34,8 @@
         </q-card-section>
 
         <q-card-section>
-          <q-input
-            v-model="newFirstName"
-            label="First Name"
-            filled
-            dense
-          />
-          <q-input
-            v-model="newLastName"
-            label="Last Name"
-            filled
-            dense
-            class="q-mt-sm"
-          />
+          <q-input v-model="newFirstName" label="First Name" filled dense />
+          <q-input v-model="newLastName" label="Last Name" filled dense class="q-mt-sm" />
         </q-card-section>
 
         <q-card-actions align="right">
@@ -59,22 +44,18 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
   </q-item>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import type { CurrentUser } from 'src/components/models';
+import type { Member } from 'src/components/models';
 
 const router = useRouter();
 const menu = ref(false);
 const openRenameDialog = ref(false);
-
-const currentUser = ref<CurrentUser | null>(null);
-
-// поля для зміни імені
+const currentUser = ref<Member | null>(null);
 const newFirstName = ref('');
 const newLastName = ref('');
 

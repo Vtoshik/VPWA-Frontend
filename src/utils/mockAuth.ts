@@ -1,74 +1,82 @@
-import type { CurrentUser } from 'src/components/models';
+import type { Member } from 'src/components/models';
+import mockMembersData from 'src/assets/test-data/mock-members.json';
 
-const CURRENT_USER_ID = 'user2';
-
-const MOCK_USERS: Record<string, CurrentUser> = {
-  user1: {
-    id: 'user1',
-    firstName: 'John',
-    lastName: 'Doe',
-    nickName: 'johnd',
-    email: 'john.doe@example.com',
-    status: 'online',
-    channels: ['general', 'dev', 'test', 'big-chat'],
-  },
-  user2: {
-    id: 'user2',
-    firstName: 'Jane',
-    lastName: 'Smith',
-    nickName: 'janes',
-    email: 'jane.smith@example.com',
-    status: 'online',
-    channels: ['general', 'dev', 'test', 'big-chat'],
-  },
-  user3: {
-    id: 'user3',
-    firstName: 'Bob',
-    lastName: 'Wilson',
-    nickName: 'bobw',
-    email: 'bob.wilson@example.com',
-    status: 'DND',
-    channels: ['general', 'big-chat'],
-  },
-  user4: {
-    id: 'user5',
-    firstName: 'Edward',
-    lastName: 'Tech',
-    nickName: 'edtech',
-    email: 'ed.tech@example.com',
-    status: 'online',
-    channels: ['dev'],
-  },
-  user5: {
-    id: 'user7',
-    firstName: 'Mike',
-    lastName: 'Tester',
-    nickName: 'miket',
-    email: 'mike.test@example.com',
-    status: 'DND',
-    channels: ['test'],
-  },
+type MembersData = {
+  [channelId: string]: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    nickName: string;
+    email: string;
+    status: 'online' | 'DND' | 'offline';
+    isTyping: boolean;
+    typingText: string;
+  }>;
 };
 
 const STORAGE_KEY = 'currentUser';
+const USERS_STORAGE_KEY = 'users';
 
-export function initMockUser(): CurrentUser {
-  const user = MOCK_USERS[CURRENT_USER_ID];
+function loadMockUsers(): Member[] {
+  const membersData = mockMembersData as MembersData;
+  const usersMap = new Map<string, Member>();
 
-  if (!user) {
-    throw new Error(`Mock user with id "${CURRENT_USER_ID}" not found`);
-  }
+  Object.entries(membersData).forEach(([channelId, members]) => {
+    members.forEach((member) => {
+      if (usersMap.has(member.id)) {
+        const existingUser = usersMap.get(member.id)!;
+        if (!existingUser.channels.includes(channelId)) {
+          existingUser.channels.push(channelId);
+        }
+      } else {
+        usersMap.set(member.id, {
+          id: member.id,
+          firstName: member.firstName,
+          lastName: member.lastName,
+          nickName: member.nickName,
+          email: member.email,
+          status: member.status,
+          isTyping: member.isTyping,
+          typingText: member.typingText,
+          password: member.nickName,
+          channels: [channelId],
+        });
+      }
+    });
+  });
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
-  return user;
+  return Array.from(usersMap.values());
 }
 
-export function getCurrentUser(): CurrentUser | null {
+export function initMockUsers(): void {
+  const existingUsers = localStorage.getItem(USERS_STORAGE_KEY);
+
+  if (!existingUsers) {
+    const mockUsers = loadMockUsers();
+    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(mockUsers));
+  } else {
+    try {
+      const users = JSON.parse(existingUsers) as Member[];
+      const mockUsers = loadMockUsers();
+      const existingEmails = new Set(users.map((u) => u.email));
+      const newMockUsers = mockUsers.filter((mu) => !existingEmails.has(mu.email));
+
+      if (newMockUsers.length > 0) {
+        users.push(...newMockUsers);
+        localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      }
+    } catch (e) {
+      console.error('Failed to merge mock users:', e);
+    }
+  }
+}
+
+export function getCurrentUser(): Member | null {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (!stored) return null;
 
   try {
-    return JSON.parse(stored) as CurrentUser;
+    return JSON.parse(stored) as Member;
   } catch {
     console.error('Failed to parse current user from localStorage');
     return null;
@@ -86,6 +94,22 @@ export function clearCurrentUser(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
+export function reloadMockUsers(): void {
+  const mockUsers = loadMockUsers();
+  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(mockUsers));
+}
+
 if (typeof window !== 'undefined') {
-  (window as unknown as { getCurrentUser: typeof getCurrentUser }).getCurrentUser = getCurrentUser;
+  (
+    window as unknown as {
+      getCurrentUser: typeof getCurrentUser;
+      reloadMockUsers: typeof reloadMockUsers;
+    }
+  ).getCurrentUser = getCurrentUser;
+  (
+    window as unknown as {
+      getCurrentUser: typeof getCurrentUser;
+      reloadMockUsers: typeof reloadMockUsers;
+    }
+  ).reloadMockUsers = reloadMockUsers;
 }

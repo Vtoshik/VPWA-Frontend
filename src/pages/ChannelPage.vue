@@ -53,7 +53,8 @@ import ChatArea from 'src/components/ChatArea.vue';
 import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
 import type { Message, Member, Command } from 'src/components/models';
-import { getCurrentUser } from 'src/utils/mockAuth';
+import { getCurrentUser, isUserInChannel, addUserToChannel } from 'src/utils/auth';
+import { channelExists, isChannelPrivate } from 'src/utils/channels';
 
 const route = useRoute();
 const showMembersPanel = ref(true);
@@ -253,10 +254,43 @@ function executeCommand(command: Command) {
     case 'list':
       resultText = `Users in channel: ${channelMembers.value.map((m) => m.nickName).join(', ')}`;
       break;
-    case 'join':
-      resultText =
-        command.args.length > 0 ? `Joining channel: ${command.args[0]}` : 'Usage: /join <channel>';
+    case 'join': {
+      if (command.args.length === 0) {
+        resultText = 'Usage: /join <channel>';
+        break;
+      }
+      const channelToJoin = command.args[0] as string;
+      //handleJoinChannel(channelToJoin);
+      const user = getCurrentUser();
+
+      if (!user) {
+        resultText = 'Error: User not logged in';
+        break;
+      }
+
+      if (!channelExists(channelToJoin)) {
+        resultText = `Error: Channel "${channelToJoin}" does not exist`;
+        break;
+      }
+
+      if (isChannelPrivate(channelToJoin)) {
+        resultText = `Error: Channel "${channelToJoin}" is private. You need an invitation to join.`;
+        break;
+      }
+
+      if (isUserInChannel(channelToJoin)) {
+        resultText = `You are already in channel: ${channelToJoin}`;
+        break;
+      }
+
+      const success = addUserToChannel(user.id, channelToJoin);
+      if (success) {
+        resultText = `Successfully joined channel: ${channelToJoin}`;
+      } else {
+        resultText = `Error: Failed to join channel: ${channelToJoin}`;
+      }
       break;
+    }
     case 'quit':
       resultText = 'Quitting current channel...';
       break;
@@ -291,6 +325,14 @@ function executeCommand(command: Command) {
 
   localMessages.value.push(commandResult);
 }
+
+// function handleJoinChannel(channelId: string) {
+//   const user = getCurrentUser();
+
+//   if (!user) {
+//     resultText = 'Error: User not logged in';
+//   }
+// }
 
 // Clear local messages
 watch(channelId, () => {

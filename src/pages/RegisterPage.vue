@@ -16,17 +16,7 @@
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useQuasar } from 'quasar';
-
-interface User {
-  id: number;
-  firstName: string;
-  lastName: string;
-  email: string;
-  password: string;
-  nickName: string;
-  status: string;
-  channels: string[];
-}
+import type { Member } from 'src/components/models';
 
 const firstName = ref('');
 const lastName = ref('');
@@ -36,16 +26,20 @@ const router = useRouter();
 const $q = useQuasar();
 
 function registerUser(): void {
+  if (!firstName.value || !lastName.value || !email.value || !password.value) {
+    $q.notify({ type: 'negative', message: 'All fields are required' });
+    return;
+  }
 
-  void router.push('/');
-  const users = (JSON.parse(localStorage.getItem('users') || '[]') as User[]);
+  const users = JSON.parse(localStorage.getItem('users') || '[]') as Member[];
 
   if (users.find((u) => u.email === email.value)) {
     $q.notify({ type: 'negative', message: 'Email already exists' });
+    return;
   }
 
-  const newUser: User = {
-    id: Date.now(),
+  const newUser: Member = {
+    id: `user${Date.now()}`,
     firstName: firstName.value,
     lastName: lastName.value,
     email: email.value,
@@ -53,6 +47,8 @@ function registerUser(): void {
     nickName: firstName.value.toLowerCase(),
     status: 'online',
     channels: ['general'],
+    isTyping: false,
+    typingText: '',
   };
 
   users.push(newUser);
@@ -60,6 +56,7 @@ function registerUser(): void {
   localStorage.setItem('currentUser', JSON.stringify(newUser));
 
   $q.notify({ type: 'positive', message: 'Registered successfully!' });
+  void router.push('/');
 }
 
 function goLogin(): void {
