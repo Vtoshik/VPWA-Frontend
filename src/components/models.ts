@@ -16,8 +16,10 @@ export type Member = {
   nickName: string;
   email: string;
   status: 'online' | 'DND' | 'offline';
-  isTyping: boolean;
-  typingText: string;
+  isTyping?: boolean;
+  typingText?: string;
+  password: string;
+  channels: string[];
 };
 
 export type Channel = {
@@ -27,6 +29,10 @@ export type Channel = {
   isPrivate: boolean;
 };
 
+export type ChannelsData = {
+  channels: Channel[];
+};
+
 export type MembersData = {
   [channelId: string]: Member[];
 };
@@ -34,14 +40,4 @@ export type MembersData = {
 export type Command = {
   name: string;
   args: string[];
-};
-
-export type CurrentUser = {
-  id: string;
-  firstName: string;
-  lastName: string;
-  nickName: string;
-  email: string;
-  status: 'online' | 'DND' | 'offline';
-  channels: string[];
 };

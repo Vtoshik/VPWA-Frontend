@@ -42,24 +42,31 @@ import { ref, onMounted, computed } from 'vue';
 import UserBar from 'src/components/UserBar.vue';
 import { useRouter } from 'vue-router';
 import ChannelComponent from 'src/components/ChannelComponent.vue';
-import type { Channel, CurrentUser } from 'src/components/models.ts';
-import { initMockUser } from 'src/utils/mockAuth';
+import type { Channel } from 'src/components/models.ts';
+import { useCurrentUser } from 'src/utils/useCurrentUser';
 
 const leftDrawerOpen = ref(false);
 const channels = ref<Channel[]>([]);
 const router = useRouter();
 const selectedChannel = ref<Channel | null>(null);
-const currentUser = ref<CurrentUser | null>(null);
+
+// Use reactive user state
+const { currentUser, userChannels, refreshUser } = useCurrentUser();
 
 const availableChannels = computed(() => {
   if (!currentUser.value) return [];
-  return channels.value.filter((channel) => currentUser.value!.channels.includes(channel.id));
+  return channels.value.filter((channel) => userChannels.value.includes(channel.id));
 });
 
 onMounted(async () => {
   try {
-    currentUser.value = initMockUser();
+    refreshUser();
 
+    if (!currentUser.value) {
+      console.warn('No authenticated user, redirecting to login');
+      void router.push('/auth/login');
+      return;
+    }
     const channelsResponse = await fetch('/src/assets/test-data/mock-channels.json');
     const channelsData = await channelsResponse.json();
     channels.value = channelsData.channels;
@@ -81,6 +88,7 @@ onMounted(async () => {
       });
     } else {
       console.warn('No channels available for current user');
+      void router.push('/');
     }
   } catch (error) {
     console.error('Error loading channels:', error);
