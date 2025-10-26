@@ -1,6 +1,15 @@
 import type { RouteRecordRaw } from 'vue-router';
 
 const routes: RouteRecordRaw[] = [
+    {
+    path: '/auth',
+    component: () => import('layouts/AuthLayout.vue'),
+    children: [
+      { path: '', redirect: '/auth/login' },
+      { path: 'login', component: () => import('pages/LoginPage.vue') },
+      { path: 'register', component: () => import('pages/RegisterPage.vue') },
+    ],
+  },
   {
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
@@ -9,9 +18,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'channel/:id', component: () => import('pages/ChannelPage.vue') },
     ],
   },
-
-  // Always leave this as last one,
-  // but you can also remove it
   {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue'),
