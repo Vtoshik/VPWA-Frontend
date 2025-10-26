@@ -6,6 +6,7 @@
       "lastName": "Doe",
       "nickName": "johnd",
       "email": "john.doe@example.com",
+      "password": "johnd",
       "status": "online",
       "isTyping": false,
       "typingText": ""
@@ -16,6 +17,7 @@
       "lastName": "Wilson",
       "nickName": "bobw",
       "email": "bob.wilson@example.com",
+      "password": "bobw",
       "status": "DND",
       "isTyping": false,
       "typingText": ""
@@ -26,6 +28,7 @@
       "lastName": "Brown",
       "nickName": "aliceb",
       "email": "alice.brown@example.com",
+      "password": "aliceb",
       "status": "offline",
       "isTyping": false,
       "typingText": ""
@@ -38,6 +41,7 @@
       "lastName": "Doe",
       "nickName": "johnd",
       "email": "john.doe@example.com",
+      "password": "johnd",
       "status": "online",
       "isTyping": false,
       "typingText": ""
@@ -48,6 +52,7 @@
       "lastName": "Tech",
       "nickName": "edtech",
       "email": "ed.tech@example.com",
+      "password": "edtech",
       "status": "online",
       "isTyping": true,
       "typingText": "Hey guys, I'm working on the new feature..."
@@ -58,6 +63,7 @@
       "lastName": "Code",
       "nickName": "sarahc",
       "email": "sarah.code@example.com",
+      "password": "sarahc",
       "status": "online",
       "isTyping": false,
       "typingText": ""
@@ -70,6 +76,7 @@
       "lastName": "Doe",
       "nickName": "johnd",
       "email": "john.doe@example.com",
+      "password": "johnd",
       "status": "online",
       "isTyping": false,
       "typingText": ""
@@ -80,6 +87,7 @@
       "lastName": "Tester",
       "nickName": "miket",
       "email": "mike.test@example.com",
+      "password": "miket",
       "status": "DND",
       "isTyping": false,
       "typingText": ""
@@ -90,6 +98,7 @@
       "lastName": "QA",
       "nickName": "lisaqa",
       "email": "lisa.qa@example.com",
+      "password": "lisaqa",
       "status": "online",
       "isTyping": false,
       "typingText": ""
@@ -102,6 +111,7 @@
       "lastName": "Wilson",
       "nickName": "bobw",
       "email": "bob.wilson@example.com",
+      "password": "bobw",
       "status": "DND",
       "isTyping": false,
       "typingText": ""
@@ -112,6 +122,7 @@
       "lastName": "Brown",
       "nickName": "aliceb",
       "email": "alice.brown@example.com",
+      "password": "aliceb",
       "status": "offline",
       "isTyping": false,
       "typingText": ""
@@ -122,6 +133,7 @@
       "lastName": "Smith",
       "nickName": "janes",
       "email": "janes.smith@example.com",
+      "password": "janes",
       "status": "online",
       "isTyping": false,
       "typingText": ""
