@@ -10,7 +10,7 @@ const MOCK_USERS: Record<string, CurrentUser> = {
     nickName: 'johnd',
     email: 'john.doe@example.com',
     status: 'online',
-    channels: ['general', 'dev', 'test'],
+    channels: ['general', 'dev', 'test', 'big-chat'],
   },
   user2: {
     id: 'user2',
@@ -19,7 +19,7 @@ const MOCK_USERS: Record<string, CurrentUser> = {
     nickName: 'janes',
     email: 'jane.smith@example.com',
     status: 'online',
-    channels: ['general', 'dev', 'test'],
+    channels: ['general', 'dev', 'test', 'big-chat'],
   },
   user3: {
     id: 'user3',
@@ -28,7 +28,7 @@ const MOCK_USERS: Record<string, CurrentUser> = {
     nickName: 'bobw',
     email: 'bob.wilson@example.com',
     status: 'DND',
-    channels: ['general'],
+    channels: ['general', 'big-chat'],
   },
   user4: {
     id: 'user5',
@@ -84,10 +84,8 @@ export function isUserInChannel(channelId: string): boolean {
 
 export function clearCurrentUser(): void {
   localStorage.removeItem(STORAGE_KEY);
-  console.log('🚪 User logged out');
 }
 
 if (typeof window !== 'undefined') {
   (window as unknown as { getCurrentUser: typeof getCurrentUser }).getCurrentUser = getCurrentUser;
 }
-

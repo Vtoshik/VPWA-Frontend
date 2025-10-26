@@ -94,5 +94,37 @@
       "isTyping": false,
       "typingText": ""
     }
+  ],
+  "big-chat": [
+    {
+      "id": "user3",
+      "firstName": "Bob",
+      "lastName": "Wilson",
+      "nickName": "bobw",
+      "email": "bob.wilson@example.com",
+      "status": "DND",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user4",
+      "firstName": "Alice",
+      "lastName": "Brown",
+      "nickName": "aliceb",
+      "email": "alice.brown@example.com",
+      "status": "offline",
+      "isTyping": false,
+      "typingText": ""
+    },
+    {
+      "id": "user2",
+      "firstName": "Jane",
+      "lastName": "Smith",
+      "nickName": "janes",
+      "email": "janes.smith@example.com",
+      "status": "online",
+      "isTyping": false,
+      "typingText": ""
+    }
   ]
 }

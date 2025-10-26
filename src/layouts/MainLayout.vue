@@ -63,6 +63,15 @@ onMounted(async () => {
     const channelsResponse = await fetch('/src/assets/test-data/mock-channels.json');
     const channelsData = await channelsResponse.json();
     channels.value = channelsData.channels;
+    const currentChannelId = router.currentRoute.value.params.id as string;
+
+    if (currentChannelId) {
+      const currentChannel = availableChannels.value.find((ch) => ch.id === currentChannelId);
+      if (currentChannel) {
+        selectedChannel.value = currentChannel;
+        return;
+      }
+    }
 
     if (availableChannels.value.length > 0) {
       selectedChannel.value = availableChannels.value[0] as Channel;
@@ -84,7 +93,6 @@ function handleChannelSelected(channel: Channel) {
 </script>
 
 <style scoped>
-/* Drawer styles */
 .drawer-content {
   height: 100%;
   padding-bottom: 0;
