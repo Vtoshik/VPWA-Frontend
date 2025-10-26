@@ -53,10 +53,9 @@ function registerUser(): void {
 
   users.push(newUser);
   localStorage.setItem('users', JSON.stringify(users));
-  localStorage.setItem('currentUser', JSON.stringify(newUser));
 
-  $q.notify({ type: 'positive', message: 'Registered successfully!' });
-  void router.push('/');
+  $q.notify({ type: 'positive', message: 'Registered successfully! Please login.' });
+  void router.push('/auth/login');
 }
 
 function goLogin(): void {

@@ -20,6 +20,7 @@ export type Member = {
   typingText?: string;
   password: string;
   channels: string[];
+  pendingInvitations?: string[];
 };
 
 export type Channel = {

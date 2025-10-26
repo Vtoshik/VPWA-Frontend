@@ -54,7 +54,7 @@ import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
 import type { Message, Member, Command } from 'src/components/models';
 import { getCurrentUser, isUserInChannel } from 'src/utils/auth';
-import { channelExists, isChannelPrivate } from 'src/utils/channels';
+import { channelExists, isChannelPrivate, createChannel } from 'src/utils/channels';
 import { useCurrentUser } from 'src/utils/useCurrentUser';
 
 const route = useRoute();
@@ -83,7 +83,21 @@ const messageFile = computed(
 const channelName = computed(() => {
   return channelId.value.charAt(0).toUpperCase() + channelId.value.slice(1);
 });
-const channelMembers = computed(() => members.value[channelId.value] || []);
+const channelMembers = computed(() => {
+  const membersInChannel = members.value[channelId.value] || [];
+
+  if (currentUser.value) {
+    const currentUserInList = membersInChannel.find(
+      (member) => member.id === currentUser.value?.id,
+    );
+
+    if (!currentUserInList) {
+      return [...membersInChannel, currentUser.value];
+    }
+  }
+
+  return membersInChannel;
+});
 const allMessages = computed(() => [...messages.value, ...localMessages.value]);
 
 const currentUser = computed(() => getCurrentUser());
@@ -261,11 +275,12 @@ function executeCommand(command: Command) {
       break;
     case 'join': {
       if (command.args.length === 0) {
-        resultText = 'Usage: /join <channel>';
+        resultText = 'Usage: /join <channel> [private|public]';
         break;
       }
       const channelToJoin = command.args[0]?.toLowerCase() as string;
-      resultText = handleJoinChannel(channelToJoin);
+      const channelType = command.args[1]?.toLowerCase();
+      resultText = handleJoinChannel(channelToJoin, channelType);
       break;
     }
     case 'quit':
@@ -309,7 +324,7 @@ function executeCommand(command: Command) {
   localMessages.value.push(commandResult);
 }
 
-function handleJoinChannel(channelId: string) {
+function handleJoinChannel(channelId: string, channelType?: string) {
   const user = getCurrentUser();
   let resultText = '';
 
@@ -319,7 +334,34 @@ function handleJoinChannel(channelId: string) {
   }
 
   if (!channelExists(channelId)) {
-    resultText = `Error: Channel "${channelId}" does not exist`;
+    let isPrivate = false;
+    if (channelType) {
+      if (channelType !== 'private' && channelType !== 'public') {
+        resultText = 'Error: Channel type must be "private" or "public"';
+        return resultText;
+      }
+      isPrivate = channelType === 'private';
+    }
+
+    const channelName = channelId.charAt(0).toUpperCase() + channelId.slice(1);
+    const createResult = createChannel(channelName, isPrivate);
+
+    if (!createResult.success) {
+      resultText = createResult.message;
+      return resultText;
+    }
+
+    const success = joinChannel(user.id, channelId);
+    if (success && createResult.channel) {
+      resultText = `Successfully created and joined ${isPrivate ? 'private' : 'public'} channel: ${channelId}`;
+
+      void router.push({
+        path: `/channel/${createResult.channel.id}`,
+        query: { file: createResult.channel.messageFile },
+      });
+    } else {
+      resultText = `Error: Failed to join created channel: ${channelId}`;
+    }
     return resultText;
   }
 

@@ -136,7 +136,8 @@
       "password": "janes",
       "status": "online",
       "isTyping": false,
-      "typingText": ""
+      "typingText": "",
+      "pendingInvitations": ["dev"]
     }
   ]
 }
