@@ -26,6 +26,7 @@ export function getCurrentUser(): Member | null {
       password: user.password || '',
       isTyping: user.isTyping,
       typingText: user.typingText,
+      pendingInvitations: user.pendingInvitations,
     };
   } catch {
     console.error('Failed to parse current user from localStorage');
@@ -85,6 +86,35 @@ export function addUserToChannel(userId: string, channelId: string): boolean {
   return false;
 }
 
+export function acceptInvitation(userId: string, channelId: string): boolean {
+  const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]') as Member[];
+  const currentUser = getCurrentUser();
+
+  if (!currentUser) return false;
+
+  const userIndex = users.findIndex((u) => String(u.id) === userId);
+  if (userIndex !== -1) {
+    const user = users[userIndex];
+    if (user?.pendingInvitations?.includes(channelId)) {
+      user.pendingInvitations = user.pendingInvitations.filter((id) => id !== channelId);
+
+      if (!user.channels.includes(channelId)) {
+        user.channels.push(channelId);
+      }
+
+      localStorage.setItem(USERS_KEY, JSON.stringify(users));
+
+      if (userId === currentUser.id) {
+        localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      }
+
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function removeUserFromChannel(userId: string, channelId: string): boolean {
   const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]') as Member[];
   const currentUser = getCurrentUser();
@@ -126,6 +156,9 @@ function loadMockUsers(): Member[] {
         const existingUser = usersMap.get(member.id)!;
         if (!existingUser.channels.includes(channelId)) {
           existingUser.channels.push(channelId);
+        }
+        if (member.pendingInvitations && !existingUser.pendingInvitations) {
+          existingUser.pendingInvitations = member.pendingInvitations;
         }
       } else {
         usersMap.set(member.id, {
