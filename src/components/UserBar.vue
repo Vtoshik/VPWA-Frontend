@@ -1,8 +1,10 @@
 <template>
   <q-item clickable class="user-bar">
-    <q-avatar size="40px" rounded>
-      <img src="https://cdn.quasar.dev/img/avatar.png" />
-    </q-avatar>
+    <q-item-section avatar class="user-avatar-section">
+      <q-avatar size="40px" rounded class="user-avatar">
+        <img src="https://cdn.quasar.dev/img/avatar.png" />
+      </q-avatar>
+    </q-item-section>
 
     <q-item-section class="user-info">
       <div class="user-name">{{ currentUser?.firstName }} {{ currentUser?.lastName }}</div>
@@ -12,7 +14,9 @@
       </div>
     </q-item-section>
 
-    <q-btn flat dense round icon="settings" @click="menu = true" />
+    <q-item-section side class="user-settings-section">
+      <q-btn flat dense round icon="settings" size="sm" @click="menu = true" class="settings-icon" />
+    </q-item-section>
 
     <!-- Menu -->
     <q-menu v-model="menu">
@@ -245,13 +249,16 @@ async function logoutUser() {
   display: flex;
   align-items: center;
   cursor: pointer;
-  min-width: 240px;
+  width: 100%;
+  max-width: 100%;
   background: #1e1f22;
   border-radius: 8px;
   padding: 10px 8px;
   border: 2px solid #202225;
   transition: all 0.2s ease;
   margin: 0 4px;
+  box-sizing: border-box;
+  min-height: 56px;
 }
 
 .user-bar:hover {
@@ -259,16 +266,41 @@ async function logoutUser() {
   border-color: #2a2c31;
 }
 
+.user-avatar-section {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-right: 0;
+}
+
+.user-avatar {
+  flex-shrink: 0;
+}
+
+.user-settings-section {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding-left: 4px;
+}
+
+.settings-icon {
+  flex-shrink: 0;
+}
+
 .user-info {
-  flex-grow: 1;
+  flex: 1 1 auto;
   margin-left: 12px;
   color: white;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .user-name {
   font-weight: 600;
   font-size: 14px;
   color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-status {
@@ -278,6 +310,9 @@ async function logoutUser() {
   display: flex;
   align-items: center;
   gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .status-icon {
@@ -315,5 +350,69 @@ async function logoutUser() {
 
 .settings-btn:hover {
   color: #ffffff;
+}
+
+/* Narrow drawer (when resized to minimum) */
+.user-bar.narrow {
+  padding: 8px 4px;
+}
+
+.user-bar.narrow .user-avatar {
+  width: 32px;
+  height: 32px;
+}
+
+.user-bar.narrow .user-info {
+  margin-left: 6px;
+}
+
+.user-bar.narrow .user-name {
+  font-size: 12px;
+}
+
+.user-bar.narrow .user-status {
+  font-size: 9px;
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+  .user-bar {
+    padding: 8px 6px;
+  }
+
+  .user-name {
+    font-size: 13px;
+  }
+
+  .user-status {
+    font-size: 11px;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 767px) {
+  .user-bar {
+    padding: 8px;
+    margin: 0 2px;
+  }
+
+  .user-info {
+    margin-left: 8px;
+  }
+
+  .user-name {
+    font-size: 13px;
+  }
+
+  .user-status {
+    font-size: 10px;
+  }
+}
+
+/* Small screens */
+@media (max-width: 480px) {
+  .user-name {
+    font-size: 12px;
+  }
 }
 </style>

@@ -1,6 +1,6 @@
 <template>
-  <q-layout view="lHh Lpr lFf" class="bg-dark" style="height: 100vh;">
-    <q-page-container class="flex flex-center">
+  <q-layout view="lHh Lpr lFf" class="auth-layout" style="height: 100vh;">
+    <q-page-container class="auth-page-container">
       <router-view />
     </q-page-container>
   </q-layout>
@@ -8,7 +8,14 @@
 <script setup lang="ts">
 </script>
 <style scoped>
-.bg-dark {
-  background-color: #1e1f22;
+.auth-layout {
+  background-color: #2b2d31;
+}
+
+.auth-page-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
 }
 </style>

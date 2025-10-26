@@ -31,7 +31,7 @@ import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
 const props = defineProps<{
-  currentUserId?: string;
+  currentUserId?: string | undefined;
 }>();
 
 const route = useRoute();
@@ -40,7 +40,11 @@ const emit = defineEmits(['send-message', 'command']);
 
 watch(text, (newText) => {
   const channelId = (route.params.id as string) || 'general';
-  const userId = props.currentUserId || 'user1';
+  const userId = props.currentUserId;
+
+  // Don't track typing if no userId
+  if (!userId) return;
+
   const typingKey = `typing:${channelId}`;
 
   if (newText.trim()) {
@@ -78,17 +82,21 @@ function sendMessage() {
 
     text.value = '';
 
+    // Clear typing indicator
     const channelId = (route.params.id as string) || 'general';
-    const userId = props.currentUserId || 'user1';
-    const typingKey = `typing:${channelId}`;
-    const existing = localStorage.getItem(typingKey);
-    if (existing) {
-      const typingData = JSON.parse(existing);
-      delete typingData[userId];
-      if (Object.keys(typingData).length === 0) {
-        localStorage.removeItem(typingKey);
-      } else {
-        localStorage.setItem(typingKey, JSON.stringify(typingData));
+    const userId = props.currentUserId;
+
+    if (userId) {
+      const typingKey = `typing:${channelId}`;
+      const existing = localStorage.getItem(typingKey);
+      if (existing) {
+        const typingData = JSON.parse(existing);
+        delete typingData[userId];
+        if (Object.keys(typingData).length === 0) {
+          localStorage.removeItem(typingKey);
+        } else {
+          localStorage.setItem(typingKey, JSON.stringify(typingData));
+        }
       }
     }
   }
@@ -141,5 +149,52 @@ function sendMessage() {
 
 .chat-input :deep(.q-field__append) {
   padding-left: 8px;
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+  .command-line-wrapper {
+    padding: 0 12px 20px 12px;
+  }
+
+  .chat-input :deep(.q-field__control) {
+    min-height: 42px;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 767px) {
+  .command-line-wrapper {
+    padding: 0 8px 16px 8px;
+  }
+
+  .chat-input :deep(.q-field__control) {
+    min-height: 40px;
+    border-radius: 6px;
+  }
+
+  .chat-input :deep(.q-field__native) {
+    font-size: 14px;
+    padding: 10px 0;
+  }
+
+  .chat-input :deep(.q-field__native::placeholder) {
+    font-size: 14px;
+  }
+
+  .chat-input :deep(.q-btn) {
+    transform: scale(0.9);
+  }
+}
+
+/* Small mobile */
+@media (max-width: 480px) {
+  .command-line-wrapper {
+    padding: 0 6px 12px 6px;
+  }
+
+  .chat-input :deep(.q-field__control) {
+    padding: 0 8px;
+  }
 }
 </style>

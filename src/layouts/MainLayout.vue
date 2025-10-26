@@ -5,7 +5,7 @@
       v-model="leftDrawerOpen"
       show-if-above
       class="bg-secondary left-drawer"
-      :width="260"
+      :width="drawerWidth"
       :breakpoint="767"
       content-class="drawer-content"
     >
@@ -45,6 +45,11 @@
         <div class="drawer-userbar-container">
           <UserBar />
         </div>
+      </div>
+
+      <!-- Resize Handle -->
+      <div class="resize-handle" @mousedown="startResize">
+        <div class="resize-handle-line"></div>
       </div>
     </q-drawer>
 
@@ -120,6 +125,12 @@ const showCreateChannelDialog = ref(false);
 const newChannelName = ref('');
 const newChannelIsPrivate = ref(false);
 
+// Resizable drawer state
+const drawerWidth = ref(260);
+const isResizing = ref(false);
+const MIN_DRAWER_WIDTH = 200;
+const MAX_DRAWER_WIDTH = 400;
+
 // Use reactive user state
 const { currentUser, userChannels, refreshUser, acceptChannelInvitation, joinChannel } =
   useCurrentUser();
@@ -161,6 +172,12 @@ onMounted(() => {
       console.warn('No authenticated user, redirecting to login');
       void router.push('/auth/login');
       return;
+    }
+
+    // Load drawer width from localStorage
+    const savedWidth = localStorage.getItem('drawerWidth');
+    if (savedWidth) {
+      drawerWidth.value = parseInt(savedWidth, 10);
     }
 
     // Load channels from localStorage or fallback to mock data
@@ -259,6 +276,36 @@ function handleCreateChannel() {
 function loadChannels() {
   channels.value = getAllChannels();
 }
+
+// Resizable drawer functions
+function startResize(event: MouseEvent) {
+  isResizing.value = true;
+  event.preventDefault();
+  document.addEventListener('mousemove', handleResize);
+  document.addEventListener('mouseup', stopResize);
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+}
+
+function handleResize(event: MouseEvent) {
+  if (!isResizing.value) return;
+
+  const newWidth = event.clientX;
+  if (newWidth >= MIN_DRAWER_WIDTH && newWidth <= MAX_DRAWER_WIDTH) {
+    drawerWidth.value = newWidth;
+  }
+}
+
+function stopResize() {
+  isResizing.value = false;
+  document.removeEventListener('mousemove', handleResize);
+  document.removeEventListener('mouseup', stopResize);
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+
+  // Save to localStorage
+  localStorage.setItem('drawerWidth', drawerWidth.value.toString());
+}
 </script>
 
 <style scoped>
@@ -271,6 +318,7 @@ function loadChannels() {
   display: flex;
   flex-direction: column;
   height: 100%;
+  position: relative;
 }
 
 .drawer-scroll {
@@ -281,6 +329,9 @@ function loadChannels() {
 .drawer-userbar-container {
   flex: 0 0 auto;
   padding: 8px;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .drawer-header-section {
@@ -329,11 +380,54 @@ function loadChannels() {
   border-right: 1px solid #1e1f22;
 }
 
+/* Mobile drawer */
+@media (max-width: 767px) {
+  .left-drawer {
+    box-shadow: 4px 0 16px rgba(0, 0, 0, 0.5);
+  }
+
+  .drawer-header-wrapper {
+    padding: 10px 12px 6px 12px;
+  }
+
+  .drawer-header {
+    font-size: 11px;
+  }
+}
+
 /* Create Channel Dialog */
 .create-channel-card {
   min-width: 400px;
   background: #313338;
   color: #f2f3f5;
+}
+
+/* Tablet breakpoint for dialog */
+@media (max-width: 768px) {
+  .create-channel-card {
+    min-width: 320px;
+    max-width: 90vw;
+  }
+}
+
+/* Mobile breakpoint for dialog */
+@media (max-width: 480px) {
+  .create-channel-card {
+    min-width: 280px;
+    width: 95vw;
+  }
+
+  .dialog-header {
+    padding: 12px 16px;
+  }
+
+  .dialog-content {
+    padding: 16px;
+  }
+
+  .dialog-actions {
+    padding: 10px 16px;
+  }
 }
 
 .dialog-header {
@@ -401,5 +495,53 @@ function loadChannels() {
 .create-btn:disabled {
   background-color: #4e5058;
   color: #6d6f78;
+}
+
+/* Resize Handle */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: col-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  transition: background-color 0.2s ease;
+}
+
+.resize-handle:hover {
+  background-color: rgba(88, 101, 242, 0.1);
+}
+
+.resize-handle:active {
+  background-color: rgba(88, 101, 242, 0.2);
+}
+
+.resize-handle-line {
+  width: 2px;
+  height: 40px;
+  background-color: transparent;
+  border-radius: 2px;
+  transition: all 0.2s ease;
+}
+
+.resize-handle:hover .resize-handle-line {
+  background-color: #5865f2;
+  height: 60px;
+}
+
+.resize-handle:active .resize-handle-line {
+  background-color: #4752c4;
+  height: 80px;
+}
+
+/* Hide resize handle on mobile */
+@media (max-width: 767px) {
+  .resize-handle {
+    display: none;
+  }
 }
 </style>
