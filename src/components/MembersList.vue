@@ -27,10 +27,11 @@
             <q-item-label caption class="member-full-name">
               {{ member.firstName }} {{ member.lastName }}
             </q-item-label>
-            <q-item-label v-if="member.isTyping" caption class="typing-indicator">
+            <!-- Typing indicator moved to chat area above command line -->
+            <!-- <q-item-label v-if="member.isTyping" caption class="typing-indicator">
               <q-icon name="edit" size="12px" />
               typing...
-            </q-item-label>
+            </q-item-label> -->
           </q-item-section>
         </q-item>
       </q-list>
@@ -214,6 +215,68 @@ watch(
   51%,
   100% {
     opacity: 0;
+  }
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+  .members-header {
+    padding: 12px;
+    font-size: 11px;
+  }
+
+  .member-item {
+    padding: 6px;
+  }
+
+  .avatar-text {
+    font-size: 13px;
+  }
+
+  .member-name {
+    font-size: 13px;
+  }
+
+  .member-full-name {
+    font-size: 11px;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 767px) {
+  .members-container {
+    height: 100%;
+  }
+
+  .members-scroll {
+    height: calc(100vh - 100px);
+  }
+
+  .members-header {
+    padding: 14px 16px;
+    font-size: 12px;
+    border-bottom: 2px solid #202225;
+  }
+
+  .members-list {
+    padding: 12px;
+  }
+
+  .member-item {
+    padding: 8px;
+    margin-bottom: 6px;
+  }
+}
+
+/* Small screens - compact member cards */
+@media (max-width: 480px) {
+  .typing-preview {
+    min-height: 80px;
+    padding: 12px;
+  }
+
+  .preview-text {
+    font-size: 13px;
   }
 }
 </style>

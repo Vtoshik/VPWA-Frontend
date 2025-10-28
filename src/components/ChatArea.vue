@@ -86,6 +86,34 @@ onMounted(() => loadMessages(props.messageFile));
   animation: pulse-mention 0.6s ease-out;
 }
 
+@media (max-width: 1024px) {
+  .chat-messages {
+    padding: 12px;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 767px) {
+  .chat-messages {
+    padding: 8px;
+    gap: 12px;
+  }
+
+  .chat-messages :deep(.q-message-text) {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .chat-messages :deep(.q-message-name) {
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .chat-messages :deep(.q-message-stamp) {
+    font-size: 11px;
+  }
+}
+
 @keyframes pulse-mention {
   0% {
     box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);

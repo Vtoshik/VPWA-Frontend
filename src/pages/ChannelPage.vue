@@ -32,7 +32,22 @@
             @update-messages="messages = $event"
           />
         </q-scroll-area>
-        <CommandLine class="chat-input" @send-message="addMessage" @command="executeCommand" />
+
+        <!-- Typing Indicator -->
+        <div v-if="typingUsers.length > 0" class="typing-indicator-container">
+          <q-icon name="edit" color="primary" size="16px" class="typing-icon" />
+          <span class="typing-text">
+            <strong>{{ typingUsersText }}</strong>
+            {{ typingUsers.length === 1 ? 'is' : 'are' }} typing...
+          </span>
+        </div>
+
+        <CommandLine
+          class="chat-input"
+          :current-user-id="currentUser?.id"
+          @send-message="addMessage"
+          @command="executeCommand"
+        />
       </div>
 
       <!-- Members panel -->
@@ -103,6 +118,17 @@ const allMessages = computed(() => [...messages.value, ...localMessages.value]);
 const currentUser = computed(() => getCurrentUser());
 const currentUserNickname = computed(() => currentUser.value?.nickName || '');
 
+// Typing users tracking
+const typingUsers = ref<{ id: string; nickName: string }[]>([]);
+const typingUsersText = computed(() => {
+  if (typingUsers.value.length === 0) return '';
+  if (typingUsers.value.length === 1) return typingUsers.value[0]?.nickName || '';
+  if (typingUsers.value.length === 2) {
+    return `${typingUsers.value[0]?.nickName} and ${typingUsers.value[1]?.nickName}`;
+  }
+  return `${typingUsers.value[0]?.nickName} and ${typingUsers.value.length - 1} others`;
+});
+
 onMounted(async () => {
   try {
     const membersResponse = await fetch('/src/assets/test-data/mock-members.json');
@@ -142,19 +168,39 @@ watch(
       const typingKey = `typing:${channelId.value}`;
       const typingData = localStorage.getItem(typingKey);
       const currentMembers = members.value[channelId.value];
-      if (typingData && currentMembers) {
+
+      if (currentMembers) {
         try {
-          const parsed = JSON.parse(typingData);
+          let parsed: Record<string, string> = {};
+
+          if (typingData) {
+            parsed = JSON.parse(typingData) as Record<string, string>;
+          }
+
           members.value[channelId.value] = currentMembers.map((member) => {
-            const typing = parsed[member.id];
-            if (typing) {
-              return { ...member, isTyping: true, typingText: typing };
+            const typingText = parsed[member.id] || (member.isTyping ? member.typingText : '');
+            if (typingText) {
+              return { ...member, isTyping: true, typingText: typingText };
             }
             return { ...member, isTyping: false, typingText: '' };
           });
-        } catch {
-          console.error('Error parsing typing data from localStorage');
+
+          const updatedMembers = members.value[channelId.value];
+          if (updatedMembers) {
+            typingUsers.value = updatedMembers
+              .filter((member) => {
+                return member.isTyping && member.id !== currentUser.value?.id;
+              })
+              .map((member) => ({
+                id: member.id,
+                nickName: member.nickName,
+              }));
+          }
+        } catch (error) {
+          console.error('Error parsing typing data from localStorage:', error);
         }
+      } else {
+        typingUsers.value = [];
       }
     }, 500);
 
@@ -412,9 +458,10 @@ function handleCancelChannel(channelId: string) {
   return resultText;
 }
 
-// Clear local messages
+// Clear local messages and typing indicators when switching channels
 watch(channelId, () => {
   localMessages.value = [];
+  typingUsers.value = [];
   scrollToBottom(true);
 });
 
@@ -478,6 +525,18 @@ watch(
   background: rgba(79, 84, 92, 0.16);
 }
 
+/* Mobile header */
+@media (max-width: 767px) {
+  .channel-header {
+    padding: 0 12px;
+    min-height: 44px;
+  }
+
+  .channel-title {
+    font-size: 15px;
+  }
+}
+
 /* Channel Content */
 .channel-content {
   flex: 1 1 auto;
@@ -508,6 +567,73 @@ watch(
   background: transparent;
 }
 
+/* Typing Indicator */
+.typing-indicator-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: rgba(79, 84, 92, 0.2);
+  border-top: 1px solid rgba(79, 84, 92, 0.3);
+  animation: fadeIn 0.2s ease-in;
+}
+
+.typing-icon {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.typing-text {
+  color: #b5bac1;
+  font-size: 13px;
+  font-style: italic;
+}
+
+.typing-text strong {
+  color: #dcddde;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Mobile typing indicator */
+@media (max-width: 767px) {
+  .typing-indicator-container {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+
+  .typing-text {
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .typing-icon {
+    flex-shrink: 0;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
 /* Loading Indicator */
 .loading-older {
   display: flex;
@@ -534,6 +660,33 @@ watch(
   border-left: 1px solid #1e1f22;
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+}
+
+/* Tablet breakpoint */
+@media (max-width: 1024px) {
+  .members-panel {
+    flex: 0 0 240px;
+    width: 240px;
+  }
+}
+
+/* Mobile breakpoint */
+@media (max-width: 767px) {
+  .members-panel {
+    position: fixed;
+    top: 48px;
+    right: 0;
+    bottom: 0;
+    width: 85%;
+    max-width: 320px;
+    z-index: 1000;
+  }
+
+  .channel-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
 }
 
 /* Slide animation */
