@@ -63,20 +63,22 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { QScrollArea } from 'quasar';
+import { QScrollArea, Notify } from 'quasar';
 import ChatArea from 'src/components/ChatArea.vue';
 import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
 import type { Message, Member, Command } from 'src/components/models';
-import { getCurrentUser, isUserInChannel } from 'src/utils/auth';
-import { channelExists, isChannelPrivate, createChannel } from 'src/utils/channels';
+import { getCurrentUser } from 'src/utils/auth';
+import { useChannels } from 'src/utils/useChannels';
 import { useCurrentUser } from 'src/utils/useCurrentUser';
+import { apiService } from 'src/services/api';
+import type { TypingData } from 'src/services/websocket';
+import { wsService } from 'src/services/websocket';
 
 const route = useRoute();
 const router = useRouter();
 
 // Reactive user state
-const { joinChannel, leaveChannel } = useCurrentUser();
 const showMembersPanel = ref(true);
 const messages = ref<Message[]>([]);
 const localMessages = ref<Message[]>([]);
@@ -92,9 +94,7 @@ const isUserAtBottom = ref(true);
 const allMessagesFromFile = ref<Message[]>([]);
 
 const channelId = computed(() => (route.params.id as string) || 'general');
-const messageFile = computed(
-  () => (route.query.file as string) || '/src/assets/test-data/mock-messages.json',
-);
+const messageFile = computed(() => (route.query.file as string) || '');
 const channelName = computed(() => {
   return channelId.value.charAt(0).toUpperCase() + channelId.value.slice(1);
 });
@@ -119,7 +119,7 @@ const currentUser = computed(() => getCurrentUser());
 const currentUserNickname = computed(() => currentUser.value?.nickName || '');
 
 // Typing users tracking
-const typingUsers = ref<{ id: string; nickName: string }[]>([]);
+const typingUsers = ref<{ id: string; nickName: string; typingText?: string }[]>([]);
 const typingUsersText = computed(() => {
   if (typingUsers.value.length === 0) return '';
   if (typingUsers.value.length === 1) return typingUsers.value[0]?.nickName || '';
@@ -131,24 +131,92 @@ const typingUsersText = computed(() => {
 
 onMounted(async () => {
   try {
-    const membersResponse = await fetch('/src/assets/test-data/mock-members.json');
-    members.value = await membersResponse.json();
+    const channelIdNum = Number(channelId.value);
+    const response = await apiService.getChannelMembers(channelIdNum);
+
+    members.value[channelId.value] = response.members.map(
+      (m): Member => ({
+        id: String(m.userId),
+        firstName: '',
+        lastName: '',
+        nickName: m.nickname,
+        email: '',
+        password: '',
+        status: m.status,
+        channels: [channelId.value],
+      }),
+    );
 
     await loadAllMessages();
+    setupMembersListeners();
+    setupTypingListeners();
   } catch (error) {
     console.error('Error loading members:', error);
   }
 });
 
+function setupMembersListeners() {
+  wsService.onUserJoinedChannel((data) => {
+    if (data.channelId === channelId.value) {
+      // TODO: завантажити інфо про користувача
+    }
+  });
+
+  wsService.onUserLeftChannel((data) => {
+    if (data.channelId === channelId.value) {
+      const channelMembers = members.value[channelId.value];
+      if (!channelMembers) return;
+
+      const index = channelMembers.findIndex((m) => m.id === String(data.userId));
+      if (index !== -1) {
+        channelMembers.splice(index, 1);
+      }
+    }
+  });
+}
+
+function setupTypingListeners() {
+  wsService.onUserTyping((data: TypingData) => {
+    if (data.channelId === channelId.value && data.userId !== currentUser.value?.id) {
+      const existingIndex = typingUsers.value.findIndex((u) => u.id === data.userId);
+
+      if (existingIndex !== -1) {
+        typingUsers.value[existingIndex]!.typingText = data.text;
+      } else {
+        typingUsers.value.push({
+          id: data.userId,
+          nickName: data.nickname,
+          typingText: data.text,
+        });
+      }
+    }
+  });
+
+  wsService.onUserStoppedTyping((data) => {
+    if (data.channelId === channelId.value) {
+      const index = typingUsers.value.findIndex((u) => u.id === data.userId);
+      if (index !== -1) {
+        typingUsers.value.splice(index, 1);
+      }
+    }
+  });
+}
+
 async function loadAllMessages() {
   try {
-    const storedMessages = localStorage.getItem(messageFile.value);
+    // TODO: Replace with API call when backend endpoint is ready
+    // const response = await apiService.getChannelMessages(Number(channelId.value));
+    // allMessagesFromFile.value = response.messages;
+
+    // For now, check localStorage for existing messages
+    const storageKey = `channel_messages_${channelId.value}`;
+    const storedMessages = localStorage.getItem(storageKey);
 
     if (storedMessages) {
       allMessagesFromFile.value = JSON.parse(storedMessages);
     } else {
-      const response = await fetch(messageFile.value);
-      allMessagesFromFile.value = await response.json();
+      // New channel - start with empty messages
+      allMessagesFromFile.value = [];
     }
 
     const totalMessages = allMessagesFromFile.value.length;
@@ -157,57 +225,10 @@ async function loadAllMessages() {
     hasMoreMessages.value = messageOffset.value > 0;
   } catch (error) {
     console.error('Error loading messages:', error);
+    allMessagesFromFile.value = [];
+    messages.value = [];
   }
 }
-
-// Watch for typing updates
-watch(
-  channelId,
-  () => {
-    const interval = setInterval(() => {
-      const typingKey = `typing:${channelId.value}`;
-      const typingData = localStorage.getItem(typingKey);
-      const currentMembers = members.value[channelId.value];
-
-      if (currentMembers) {
-        try {
-          let parsed: Record<string, string> = {};
-
-          if (typingData) {
-            parsed = JSON.parse(typingData) as Record<string, string>;
-          }
-
-          members.value[channelId.value] = currentMembers.map((member) => {
-            const typingText = parsed[member.id] || (member.isTyping ? member.typingText : '');
-            if (typingText) {
-              return { ...member, isTyping: true, typingText: typingText };
-            }
-            return { ...member, isTyping: false, typingText: '' };
-          });
-
-          const updatedMembers = members.value[channelId.value];
-          if (updatedMembers) {
-            typingUsers.value = updatedMembers
-              .filter((member) => {
-                return member.isTyping && member.id !== currentUser.value?.id;
-              })
-              .map((member) => ({
-                id: member.id,
-                nickName: member.nickName,
-              }));
-          }
-        } catch (error) {
-          console.error('Error parsing typing data from localStorage:', error);
-        }
-      } else {
-        typingUsers.value = [];
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  },
-  { immediate: true },
-);
 
 function toggleMembersPanel() {
   showMembersPanel.value = !showMembersPanel.value;
@@ -278,7 +299,7 @@ function addMessage(text: string) {
   const mentionedUsers = parseMentions(text);
 
   const newMessage: Message = {
-    name: 'me',
+    name: currentUser.value?.nickName || 'me',
     text: [text],
     stamp: new Date().toLocaleTimeString(),
     sent: true,
@@ -289,7 +310,13 @@ function addMessage(text: string) {
   }
 
   messages.value.push(newMessage);
-  localStorage.setItem(messageFile.value, JSON.stringify(messages.value));
+
+  // Save to localStorage using channel-specific key
+  const storageKey = `channel_messages_${channelId.value}`;
+  localStorage.setItem(storageKey, JSON.stringify(messages.value));
+
+  // TODO: Send message via WebSocket when backend is ready
+  // wsService.sendMessage(channelId.value, text, mentionedUsers);
 
   if (isUserAtBottom.value) {
     scrollToBottom();
@@ -312,150 +339,120 @@ function parseMentions(text: string): string[] {
   return mentioned;
 }
 
-function executeCommand(command: Command) {
-  let resultText = '';
+async function executeCommand(command: Command) {
+  const commandName = command.name.toLowerCase();
+  const args = command.args;
 
-  switch (command.name) {
-    case 'list':
-      resultText = `Users in channel: ${channelMembers.value.map((m) => m.nickName).join(', ')}`;
-      break;
-    case 'join': {
-      if (command.args.length === 0) {
-        resultText = 'Usage: /join <channel> [private|public]';
+  try {
+    switch (command.name) {
+      case 'list':
+        showNotification('Members list displayed', 'info');
+        showMembersPanel.value = true;
+        break;
+      case 'join': {
+        const channelName = args[0];
+        const isPrivate = args[1]?.toLowerCase() === 'private';
+
+        if (!channelName) {
+          showNotification('Usage: /join <channelName> [private]', 'warning');
+          return;
+        }
+
+        const { channels, createChannel } = useChannels();
+        const { addChannelToUser } = useCurrentUser();
+
+        // Check if channel already exists
+        const existingChannel = channels.value.find(
+          (ch) => ch.name.toLowerCase() === channelName.toLowerCase()
+        );
+
+        if (existingChannel) {
+          // Channel exists - just join it (add to user's channels)
+          addChannelToUser(existingChannel.id);
+          showNotification(`Joined existing channel #${existingChannel.name}`, 'positive');
+          void router.push(`/channel/${existingChannel.id}`);
+        } else {
+          // Channel doesn't exist - create it
+          try {
+            const newChannel = await createChannel(channelName, isPrivate);
+            if (newChannel) {
+              showNotification(`Created and joined channel #${channelName}`, 'positive');
+              void router.push(`/channel/${newChannel.id}`);
+            }
+          } catch (err) {
+            const error = err as { response?: { data?: { message?: string } } };
+            showNotification(error.response?.data?.message || 'Failed to create channel', 'negative');
+          }
+        }
         break;
       }
-      const channelToJoin = command.args[0]?.toLowerCase() as string;
-      const channelType = command.args[1]?.toLowerCase();
-      resultText = handleJoinChannel(channelToJoin, channelType);
-      break;
-    }
-    case 'quit':
-      resultText = 'Quitting current channel...';
-      break;
-    case 'cancel': {
-      if (command.args.length === 0) {
-        resultText += ' Usage: /cancel <channel>';
+      case 'quit': {
+        const { deleteChannel } = useChannels();
+        const quitChannelId = Number(channelId.value);
+
+        await deleteChannel(quitChannelId);
+        showNotification('Channel deleted', 'positive');
+        void router.push('/');
         break;
       }
-      const channelToCancel = command.args[0]?.toLowerCase() as string;
-      resultText = handleCancelChannel(channelToCancel);
-      break;
-    }
-    case 'kick':
-      resultText =
-        command.args.length > 0 ? `Kicking user: ${command.args[0]}` : 'Usage: /kick <user>';
-      break;
-    case 'revoke':
-      resultText =
-        command.args.length > 0 ? `Revoking invite: ${command.args[0]}` : 'Usage: /revoke <user>';
-      break;
-    case 'invite':
-      resultText =
-        command.args.length > 0 ? `Inviting user: ${command.args[0]}` : 'Usage: /invite <user>';
-      break;
-    default:
-      resultText = `Unknown command: /${command.name}`;
-  }
+      case 'cancel': {
+        const { leaveChannel } = useChannels();
+        const cancelChannelId = Number(channelId.value);
 
-  const commandResult: Message = {
-    name: 'System',
-    text: [resultText],
-    stamp: new Date().toLocaleTimeString(),
-    sent: false,
-    isCommand: true,
-    isLocal: true,
-    channelId: channelId.value,
-  };
-
-  localMessages.value.push(commandResult);
-}
-
-function handleJoinChannel(channelId: string, channelType?: string) {
-  const user = getCurrentUser();
-  let resultText = '';
-
-  if (!user) {
-    resultText = 'Error: User not logged in';
-    return resultText;
-  }
-
-  if (!channelExists(channelId)) {
-    let isPrivate = false;
-    if (channelType) {
-      if (channelType !== 'private' && channelType !== 'public') {
-        resultText = 'Error: Channel type must be "private" or "public"';
-        return resultText;
+        await leaveChannel(cancelChannelId);
+        showNotification('Left channel', 'positive');
+        void router.push('/');
+        break;
       }
-      isPrivate = channelType === 'private';
+      case 'kick': {
+        const kickNickname = args[0];
+        if (!kickNickname) {
+          showNotification('Usage: /kick <nickname>', 'warning');
+          return;
+        }
+
+        const kickUserId = 123; // TODO: get from API
+        const kickChannelId = Number(channelId.value);
+
+        const kickResponse = await apiService.kickFromChannel(kickChannelId, {
+          userId: kickUserId,
+        });
+        showNotification(kickResponse.message, 'positive');
+        break;
+      }
+      case 'revoke':
+        showNotification(
+          command.args.length > 0 ? `Revoking invite: ${command.args[0]}` : 'Usage: /revoke <user>',
+          'info',
+        );
+        break;
+      case 'invite': {
+        const inviteNickname = args[0];
+        if (!inviteNickname) {
+          showNotification('Usage: /invite <nickname>', 'warning');
+          return;
+        }
+        const inviteUserId = 123; // TODO: get from api
+
+        const inviteChannelId = Number(channelId.value);
+        await apiService.inviteToChannel(inviteChannelId, { userId: inviteUserId });
+        showNotification(`Invited ${inviteNickname} to channel`, 'positive');
+        break;
+      }
+      default:
+        showNotification(`Unknown command: /${commandName}`, 'warning');
     }
-
-    const channelName = channelId.charAt(0).toUpperCase() + channelId.slice(1);
-    const createResult = createChannel(channelName, isPrivate);
-
-    if (!createResult.success) {
-      resultText = createResult.message;
-      return resultText;
-    }
-
-    const success = joinChannel(user.id, channelId);
-    if (success && createResult.channel) {
-      resultText = `Successfully created and joined ${isPrivate ? 'private' : 'public'} channel: ${channelId}`;
-
-      void router.push({
-        path: `/channel/${createResult.channel.id}`,
-        query: { file: createResult.channel.messageFile },
-      });
-    } else {
-      resultText = `Error: Failed to join created channel: ${channelId}`;
-    }
-    return resultText;
+  } catch (err) {
+    const error = err as { response?: { data?: { message?: string } } };
+    showNotification(
+      error.response?.data?.message || `Failed to execute command: /${commandName}`,
+      'negative',
+    );
   }
-
-  if (isChannelPrivate(channelId)) {
-    resultText = `Error: Channel "${channelId}" is private. You need an invitation to join.`;
-    return resultText;
-  }
-
-  if (isUserInChannel(channelId)) {
-    resultText = `You are already in channel: ${channelId}`;
-    return resultText;
-  }
-
-  const success = joinChannel(user.id, channelId);
-  if (success) {
-    resultText = `Successfully joined channel: ${channelId}`;
-  } else {
-    resultText = `Error: Failed to join channel: ${channelId}`;
-  }
-  return resultText;
 }
 
-function handleCancelChannel(channelId: string) {
-  const user = getCurrentUser();
-  let resultText = '';
-  if (!user) {
-    resultText = 'Error: User not logged in';
-    return resultText;
-  }
-
-  if (!isUserInChannel(channelId)) {
-    resultText = `You are not in channel: ${channelId}`;
-    return resultText;
-  }
-
-  const success = leaveChannel(user.id, channelId);
-  if (!success) {
-    resultText = `Error: Failed to leave channel: ${channelId}`;
-  } else {
-    resultText = `Successfully left channel: ${channelId}`;
-
-    const currentChannelId = route.params.id as string;
-    if (channelId === currentChannelId) {
-      void router.push('/');
-    }
-  }
-
-  return resultText;
+function showNotification(message: string, type: 'positive' | 'negative' | 'warning' | 'info') {
+  Notify.create({ type, message, position: 'top' });
 }
 
 // Clear local messages and typing indicators when switching channels

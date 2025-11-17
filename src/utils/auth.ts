@@ -1,5 +1,7 @@
 import type { Member } from 'src/components/models';
 import mockMembersData from 'src/assets/test-data/mock-members.json';
+import { apiService, type AuthResponse } from 'src/services/api';
+import { wsService } from 'src/services/websocket';
 
 const CURRENT_USER_KEY = 'currentUser';
 const USERS_KEY = 'users';
@@ -8,6 +10,26 @@ type MemberFromJson = Omit<Member, 'channels'>;
 type MembersDataFromJson = {
   [channelId: string]: MemberFromJson[];
 };
+
+function convertBackendUserToMember(backendUser: AuthResponse['user']): Member {
+  return {
+    id: String(backendUser.id),
+    firstName: backendUser.firstname || '',
+    lastName: backendUser.lastname || '',
+    nickName: backendUser.nickname,
+    email: backendUser.email,
+    status: backendUser.status,
+    channels: [],
+    password: '',
+    isTyping: false,
+    typingText: '',
+    pendingInvitations: [],
+  };
+}
+
+export function setCurrentUser(user: Member): void {
+  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+}
 
 export function getCurrentUser(): Member | null {
   const stored = localStorage.getItem(CURRENT_USER_KEY);
@@ -22,7 +44,7 @@ export function getCurrentUser(): Member | null {
       nickName: user.nickName,
       email: user.email,
       status: user.status || 'online',
-      channels: user.channels || ['general'],
+      channels: user.channels || [],
       password: user.password || '',
       isTyping: user.isTyping,
       typingText: user.typingText,
@@ -35,11 +57,69 @@ export function getCurrentUser(): Member | null {
 }
 
 export function isAuthenticated(): boolean {
-  return getCurrentUser() !== null;
+  return getCurrentUser() !== null && apiService.isAuthenticated();
 }
 
-export function logout(): void {
-  localStorage.removeItem(CURRENT_USER_KEY);
+export async function login(email: string, password: string): Promise<Member> {
+  const response = await apiService.login({ email, password });
+  const member = convertBackendUserToMember(response.user);
+
+  // Load user's channels from backend
+  try {
+    const channelsResponse = await apiService.getChannels();
+    member.channels = channelsResponse.channels.map((ch) => String(ch.id));
+  } catch (error) {
+    console.error('Failed to load user channels:', error);
+    member.channels = [];
+  }
+
+  setCurrentUser(member);
+
+  wsService.connect(response.token);
+
+  return member;
+}
+
+export async function register(
+  email: string,
+  password: string,
+  nickname: string,
+  firstname?: string,
+  lastname?: string,
+): Promise<Member> {
+  const registerData: {
+    email: string;
+    password: string;
+    nickname: string;
+    firstname?: string;
+    lastname?: string;
+  } = {
+    email,
+    password,
+    nickname,
+  };
+
+  if (firstname) registerData.firstname = firstname;
+  if (lastname) registerData.lastname = lastname;
+
+  const response = await apiService.register(registerData);
+  const member = convertBackendUserToMember(response.user);
+  setCurrentUser(member);
+
+  wsService.connect(response.token);
+
+  return member;
+}
+
+export async function logout(): Promise<void> {
+  try {
+    await apiService.logout();
+  } catch (error) {
+    console.error('Logout failed:', error);
+  } finally {
+    wsService.disconnect();
+    localStorage.removeItem(CURRENT_USER_KEY);
+  }
 }
 
 export function isUserInChannel(channelId: string): boolean {

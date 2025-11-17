@@ -26,8 +26,12 @@ export type Member = {
 export type Channel = {
   id: string;
   name: string;
-  messageFile: string;
+  messageFile?: string;
   isPrivate: boolean;
+  adminId?: number;
+  lastActivity?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export type ChannelsData = {

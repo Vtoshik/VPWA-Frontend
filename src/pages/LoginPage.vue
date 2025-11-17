@@ -48,8 +48,9 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { Notify, useQuasar } from 'quasar';
-import type { Member } from 'src/components/models';
+import { Notify, useQuasar, Loading } from 'quasar';
+import { login } from 'src/utils/auth';
+import { useChannels } from 'src/utils/useChannels';
 
 const email = ref('');
 const password = ref('');
@@ -72,23 +73,49 @@ onMounted(async () => {
   }
 });
 
-const loginUser = (): void => {
-  const users = JSON.parse(localStorage.getItem('users') || '[]') as Member[];
-  const user = users.find((u) => u.email === email.value && u.password === password.value);
-
-  if (!user) {
-    Notify.create({ type: 'negative', message: 'Invalid email or password' });
+const loginUser = async (): Promise<void> => {
+  if (!email.value || !password.value) {
+    Notify.create({ type: 'negative', message: 'Please fill in all fields' });
     return;
   }
 
-  localStorage.setItem('currentUser', JSON.stringify(user));
-  Notify.create({ type: 'positive', message: `Welcome back, ${user.firstName}!` });
+  Loading.show({
+    message: 'Signing in...',
+    spinnerColor: 'primary',
+  });
 
-  setTimeout(() => {
-    showMissedNotifications();
-  }, 2000);
+  try {
+    const user = await login(email.value, password.value);
 
-  void router.push('/');
+    // Load channels into the composable
+    const { loadChannels, setupSocketListeners } = useChannels();
+    await loadChannels();
+    setupSocketListeners();
+
+    Loading.hide();
+    Notify.create({
+      type: 'positive',
+      message: `Welcome back, ${user.firstName || user.nickName}!`
+    });
+
+    setTimeout(() => {
+      showMissedNotifications();
+    }, 2000);
+
+    void router.push('/');
+  } catch (error: unknown) {
+    Loading.hide();
+
+    const errorMessage =
+      error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Invalid email or password'
+        : 'An error occurred during login';
+
+    Notify.create({
+      type: 'negative',
+      message: errorMessage
+    });
+  }
 };
 
 function showMissedNotifications() {

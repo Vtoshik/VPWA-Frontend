@@ -44,6 +44,12 @@ function getMessageBgColor(message: Message): string {
 }
 
 async function loadMessages(file: string) {
+  // If no file specified or using allMessages prop, skip loading
+  if (!file || props.allMessages) {
+    messages.value = [];
+    return;
+  }
+
   try {
     const storedMessages = localStorage.getItem(file);
     if (storedMessages) {
@@ -54,6 +60,7 @@ async function loadMessages(file: string) {
     }
   } catch (err) {
     console.error('Error loading messages:', err);
+    messages.value = [];
   }
 }
 
@@ -63,12 +70,18 @@ watch(
   messages,
   (newMessages) => {
     emits('update-messages', newMessages);
-    localStorage.setItem(props.messageFile, JSON.stringify(newMessages));
+    if (props.messageFile) {
+      localStorage.setItem(props.messageFile, JSON.stringify(newMessages));
+    }
   },
   { deep: true },
 );
 
-onMounted(() => loadMessages(props.messageFile));
+onMounted(() => {
+  if (props.messageFile && !props.allMessages) {
+    void loadMessages(props.messageFile);
+  }
+});
 </script>
 
 <style scoped>

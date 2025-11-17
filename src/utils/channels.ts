@@ -1,83 +1,48 @@
-import type { Channel, ChannelsData } from 'src/components/models';
-import mockChannelsData from 'src/assets/test-data/mock-channels.json';
+import { useChannels } from './useChannels';
 
-const CHANNELS_STORAGE_KEY = 'channels';
-
-export function getAllChannels(): Channel[] {
-  const storedChannels = localStorage.getItem(CHANNELS_STORAGE_KEY);
-  if (storedChannels) {
-    try {
-      const parsed = JSON.parse(storedChannels) as Channel[];
-      return parsed;
-    } catch (error) {
-      console.error('Error parsing channels from localStorage:', error);
-    }
-  }
-
-  const data = mockChannelsData as ChannelsData;
-  return data.channels;
+export function getAllChannels() {
+  const { channels } = useChannels();
+  return channels.value;
 }
 
-function saveChannels(channels: Channel[]): void {
-  localStorage.setItem(CHANNELS_STORAGE_KEY, JSON.stringify(channels));
+export function getChannelById(channelId: string) {
+  const { findChannelById } = useChannels();
+  return findChannelById(Number(channelId)) || null;
 }
 
-export function getChannelById(channelId: string): Channel | null {
-  const channels = getAllChannels();
-  return channels.find((ch) => ch.id === channelId) || null;
-}
-
-export function channelExists(channelId: string): boolean {
+export function channelExists(channelId: string) {
   return getChannelById(channelId) !== null;
 }
 
-export function isChannelPrivate(channelId: string): boolean {
+export function isChannelPrivate(channelId: string) {
   const channel = getChannelById(channelId);
   return channel?.isPrivate ?? false;
 }
 
-export function getPublicChannels(): Channel[] {
-  return getAllChannels().filter((ch) => !ch.isPrivate);
+export function getPublicChannels() {
+  const { publicChannels } = useChannels();
+  return publicChannels.value;
 }
 
-export function getPrivateChannels(): Channel[] {
-  return getAllChannels().filter((ch) => ch.isPrivate);
+export function getPrivateChannels() {
+  const { privateChannels } = useChannels();
+  return privateChannels.value;
 }
 
-export function createChannel(
-  channelName: string,
-  isPrivate: boolean,
-): {
-  success: boolean;
-  message: string;
-  channel?: Channel;
-} {
-  const channelId = channelName.toLowerCase().trim();
+export async function createChannel(channelName: string, isPrivate: boolean) {
+  const { createChannel: create } = useChannels();
 
-  if (!channelId || channelId.length === 0) {
-    return { success: false, message: 'Channel name cannot be empty' };
+  try {
+    const channel = await create(channelName, isPrivate);
+    return {
+      success: true,
+      message: `Successfully created ${isPrivate ? 'private' : 'public'} channel: ${channelName}`,
+      channel,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.response?.data?.message || 'Failed to create channel',
+    };
   }
-
-  if (channelExists(channelId)) {
-    return { success: false, message: `Channel "${channelName}" already exists` };
-  }
-
-  const newChannel: Channel = {
-    id: channelId,
-    name: channelName.trim(),
-    messageFile: `/src/assets/test-data/mock-messages-${channelId}.json`,
-    isPrivate,
-  };
-
-  const channels = getAllChannels();
-  channels.push(newChannel);
-  saveChannels(channels);
-
-  localStorage.setItem(newChannel.messageFile, JSON.stringify([]));
-
-  return {
-    success: true,
-    message: `Successfully created ${isPrivate ? 'private' : 'public'} channel: ${channelName}`,
-    channel: newChannel,
-  };
 }
