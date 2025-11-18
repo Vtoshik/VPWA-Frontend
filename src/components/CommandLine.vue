@@ -29,6 +29,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
+import { wsService } from 'src/services/websocket';
 
 const props = defineProps<{
   currentUserId?: string | undefined;
@@ -42,27 +43,12 @@ watch(text, (newText) => {
   const channelId = (route.params.id as string) || 'general';
   const userId = props.currentUserId;
 
-  // Don't track typing if no userId
   if (!userId) return;
 
-  const typingKey = `typing:${channelId}`;
-
   if (newText.trim()) {
-    const existing = localStorage.getItem(typingKey);
-    const typingData = existing ? JSON.parse(existing) : {};
-    typingData[userId] = newText;
-    localStorage.setItem(typingKey, JSON.stringify(typingData));
+    wsService.updateTyping(channelId, newText);
   } else {
-    const existing = localStorage.getItem(typingKey);
-    if (existing) {
-      const typingData = JSON.parse(existing);
-      delete typingData[userId];
-      if (Object.keys(typingData).length === 0) {
-        localStorage.removeItem(typingKey);
-      } else {
-        localStorage.setItem(typingKey, JSON.stringify(typingData));
-      }
-    }
+    wsService.stopTyping(channelId);
   }
 });
 
@@ -82,23 +68,8 @@ function sendMessage() {
 
     text.value = '';
 
-    // Clear typing indicator
     const channelId = (route.params.id as string) || 'general';
-    const userId = props.currentUserId;
-
-    if (userId) {
-      const typingKey = `typing:${channelId}`;
-      const existing = localStorage.getItem(typingKey);
-      if (existing) {
-        const typingData = JSON.parse(existing);
-        delete typingData[userId];
-        if (Object.keys(typingData).length === 0) {
-          localStorage.removeItem(typingKey);
-        } else {
-          localStorage.setItem(typingKey, JSON.stringify(typingData));
-        }
-      }
-    }
+    wsService.stopTyping(channelId);
   }
 }
 </script>

@@ -10,7 +10,7 @@
         <q-input
           v-model="firstName"
           filled
-          label="First name"
+          label="First name (optional)"
           class="auth-input"
           dark
           color="primary"
@@ -19,7 +19,16 @@
         <q-input
           v-model="lastName"
           filled
-          label="Last name"
+          label="Last name (optional)"
+          class="auth-input"
+          dark
+          color="primary"
+          label-color="grey-5"
+        />
+        <q-input
+          v-model="nickname"
+          filled
+          label="Nickname"
           class="auth-input"
           dark
           color="primary"
@@ -29,6 +38,7 @@
           v-model="email"
           filled
           label="Email"
+          type="email"
           class="auth-input"
           dark
           color="primary"
@@ -66,47 +76,57 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { useQuasar } from 'quasar';
-import type { Member } from 'src/components/models';
+import { Loading, useQuasar } from 'quasar';
+import { register } from 'src/utils/auth';
 
 const firstName = ref('');
 const lastName = ref('');
+const nickname = ref('');
 const email = ref('');
 const password = ref('');
 const router = useRouter();
 const $q = useQuasar();
 
-function registerUser(): void {
-  if (!firstName.value || !lastName.value || !email.value || !password.value) {
-    $q.notify({ type: 'negative', message: 'All fields are required' });
+async function registerUser(): Promise<void> {
+  if (!email.value || !password.value || !nickname.value) {
+    $q.notify({ type: 'negative', message: 'Email, password, and nickname are required' });
     return;
   }
 
-  const users = JSON.parse(localStorage.getItem('users') || '[]') as Member[];
+  Loading.show({
+    message: 'Creating account...',
+    spinnerColor: 'primary',
+  });
 
-  if (users.find((u) => u.email === email.value)) {
-    $q.notify({ type: 'negative', message: 'Email already exists' });
-    return;
+  try {
+    await register(
+      email.value,
+      password.value,
+      nickname.value,
+      firstName.value || undefined,
+      lastName.value || undefined
+    );
+
+    Loading.hide();
+    $q.notify({
+      type: 'positive',
+      message: 'Account created successfully! Welcome!'
+    });
+
+    void router.push('/');
+  } catch (error: unknown) {
+    Loading.hide();
+
+    const errorMessage =
+      error && typeof error === 'object' && 'response' in error
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed'
+        : 'An error occurred during registration';
+
+    $q.notify({
+      type: 'negative',
+      message: errorMessage
+    });
   }
-
-  const newUser: Member = {
-    id: `user${Date.now()}`,
-    firstName: firstName.value,
-    lastName: lastName.value,
-    email: email.value,
-    password: password.value,
-    nickName: firstName.value.toLowerCase(),
-    status: 'online',
-    channels: ['general'],
-    isTyping: false,
-    typingText: '',
-  };
-
-  users.push(newUser);
-  localStorage.setItem('users', JSON.stringify(users));
-
-  $q.notify({ type: 'positive', message: 'Registered successfully! Please login.' });
-  void router.push('/auth/login');
 }
 
 function goLogin(): void {

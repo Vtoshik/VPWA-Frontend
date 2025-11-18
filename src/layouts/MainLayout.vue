@@ -113,10 +113,10 @@ import { useRouter } from 'vue-router';
 import ChannelComponent from 'src/components/ChannelComponent.vue';
 import type { Channel } from 'src/components/models.ts';
 import { useCurrentUser } from 'src/utils/useCurrentUser';
-import { createChannel, getAllChannels } from 'src/utils/channels';
+import { useChannels } from 'src/utils/useChannels';
 
 const leftDrawerOpen = ref(false);
-const channels = ref<Channel[]>([]);
+const { channels, createChannel: createNewChannel, loadChannels } = useChannels();
 const router = useRouter();
 const selectedChannel = ref<Channel | null>(null);
 
@@ -132,8 +132,7 @@ const MIN_DRAWER_WIDTH = 200;
 const MAX_DRAWER_WIDTH = 400;
 
 // Use reactive user state
-const { currentUser, userChannels, refreshUser, acceptChannelInvitation, joinChannel } =
-  useCurrentUser();
+const { currentUser, userChannels, refreshUser, acceptChannelInvitation } = useCurrentUser();
 
 const availableChannels = computed(() => {
   if (!currentUser.value) return [];
@@ -215,7 +214,7 @@ function handleChannelSelected(channel: Channel) {
   }
 }
 
-function handleCreateChannel() {
+async function handleCreateChannel() {
   if (!newChannelName.value.trim()) {
     Notify.create({
       type: 'negative',
@@ -234,47 +233,41 @@ function handleCreateChannel() {
     return;
   }
 
-  const result = createChannel(newChannelName.value, newChannelIsPrivate.value);
+  try {
+    const newChannel = await createNewChannel(newChannelName.value, newChannelIsPrivate.value);
 
-  if (result.success && result.channel) {
-    const success = joinChannel(currentUser.value.id, result.channel.id);
-
-    if (success) {
-      channels.value = getAllChannels();
-
-      Notify.create({
-        type: 'positive',
-        message: result.message,
-        position: 'top',
-      });
-
-      // Reset dialog
-      showCreateChannelDialog.value = false;
-      newChannelName.value = '';
-      newChannelIsPrivate.value = false;
-
-      void router.push({
-        path: `/channel/${result.channel.id}`,
-        query: { file: result.channel.messageFile },
-      });
-    } else {
+    if (!newChannel) {
       Notify.create({
         type: 'negative',
-        message: 'Failed to join the created channel',
+        message: 'Failed to create channel',
         position: 'top',
       });
+      return;
     }
-  } else {
+
+    Notify.create({
+      type: 'positive',
+      message: `Successfully created channel: ${newChannel.name}`,
+      position: 'top',
+    });
+
+    // Reset dialog
+    showCreateChannelDialog.value = false;
+    newChannelName.value = '';
+    newChannelIsPrivate.value = false;
+
+    // Redirect to new channel
+    void router.push({
+      path: `/channel/${newChannel.id}`,
+    });
+  } catch (err) {
+    const error = err as { response?: { data?: { message?: string } } };
     Notify.create({
       type: 'negative',
-      message: result.message,
+      message: error.response?.data?.message || 'An error occurred while creating the channel',
       position: 'top',
     });
   }
-}
-
-function loadChannels() {
-  channels.value = getAllChannels();
 }
 
 // Resizable drawer functions

@@ -40,6 +40,27 @@ export function useCurrentUser() {
     return success;
   }
 
+  function addChannelToUser(channelId: string): void {
+    if (!currentUser.value) return;
+
+    if (!currentUser.value.channels.includes(channelId)) {
+      currentUser.value.channels.push(channelId);
+      // Update localStorage
+      localStorage.setItem('current_user', JSON.stringify(currentUser.value));
+    }
+  }
+
+  function removeChannelFromUser(channelId: string): void {
+    if (!currentUser.value) return;
+
+    const index = currentUser.value.channels.indexOf(channelId);
+    if (index !== -1) {
+      currentUser.value.channels.splice(index, 1);
+      // Update localStorage
+      localStorage.setItem('current_user', JSON.stringify(currentUser.value));
+    }
+  }
+
   const userChannels = computed(() => currentUser.value?.channels ?? []);
   const isInChannel = computed(() => (channelId: string) => {
     return userChannels.value.includes(channelId);
@@ -57,5 +78,7 @@ export function useCurrentUser() {
     joinChannel,
     leaveChannel,
     acceptChannelInvitation,
+    addChannelToUser,
+    removeChannelFromUser,
   };
 }
