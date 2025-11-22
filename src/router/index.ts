@@ -16,7 +16,7 @@ export default defineRouter(() => {
     routes,
     history: createHistory(process.env.VUE_ROUTER_BASE),
   });
-  Router.beforeEach((to, from, next) => {
+  Router.beforeEach((to, _from, next) => {
   const user = localStorage.getItem('currentUser');
   const isAuthRoute = to.path.startsWith('/auth');
   if (!user && !isAuthRoute) {

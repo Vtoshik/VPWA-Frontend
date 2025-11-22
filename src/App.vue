@@ -10,10 +10,11 @@ import { getCurrentUser } from 'src/utils/auth';
 
 onMounted(async () => {
   const user = getCurrentUser();
+  const token = localStorage.getItem('auth_token');
 
-  if (user) {
-    const token = localStorage.getItem('auth_token');
-    if (token && !wsService.isConnected()) {
+  if (user && token) {
+    // Only reconnect if we have both user and valid token
+    if (!wsService.isConnected()) {
       wsService.connect(token);
     }
 
@@ -21,6 +22,9 @@ onMounted(async () => {
     await loadChannels();
 
     setupSocketListeners();
+  } else if (wsService.isConnected()) {
+    // Disconnect if no valid user/token
+    wsService.disconnect();
   }
 });
 </script>

@@ -56,6 +56,29 @@ export function useChannels() {
     }
   }
 
+  async function joinChannel(name: string): Promise<Channel | null> {
+    try {
+      const response = await apiService.joinChannel({ name });
+      const channel = convertToChannel(response.channel);
+
+      // Check if channel already in local list
+      const existingIndex = channels.value.findIndex((ch) => ch.id === channel.id);
+      if (existingIndex === -1) {
+        // Add to local channels list
+        channels.value.push(channel);
+      }
+
+      // Add channel to current user's channels list
+      const { addChannelToUser } = useCurrentUser();
+      addChannelToUser(channel.id);
+
+      return channel;
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to join channel';
+      throw err;
+    }
+  }
+
   async function deleteChannel(channelId: number): Promise<void> {
     try {
       await apiService.deleteChannel(channelId);
@@ -115,6 +138,7 @@ export function useChannels() {
     privateChannels,
     loadChannels,
     createChannel,
+    joinChannel,
     deleteChannel,
     leaveChannel,
     findChannelById,
