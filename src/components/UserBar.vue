@@ -82,6 +82,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Member } from 'src/components/models';
 import { Notify } from 'quasar';
+import { logout } from 'src/utils/auth';
 
 const router = useRouter();
 const menu = ref(false);
@@ -239,7 +240,7 @@ function saveNewName() {
 }
 
 async function logoutUser() {
-  localStorage.removeItem('currentUser');
+  await logout();
   await router.push('/auth/login');
 }
 </script>

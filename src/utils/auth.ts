@@ -112,13 +112,17 @@ export async function register(
 }
 
 export async function logout(): Promise<void> {
+  // Disconnect WebSocket and clear local data first
+  wsService.disconnect();
+  localStorage.removeItem(CURRENT_USER_KEY);
+  localStorage.removeItem('auth_token');
+
+  // Try to notify backend, but don't fail if it errors
   try {
     await apiService.logout();
   } catch (error) {
-    console.error('Logout failed:', error);
-  } finally {
-    wsService.disconnect();
-    localStorage.removeItem(CURRENT_USER_KEY);
+    // Ignore logout errors - we've already cleared local state
+    console.log('Backend logout skipped (already logged out locally)');
   }
 }
 

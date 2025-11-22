@@ -92,7 +92,11 @@ const loginUser = async (): Promise<void> => {
     await loadChannels();
     setupSocketListeners();
 
+    // Navigate first, then hide loading and show notifications
+    await router.push('/');
+
     Loading.hide();
+
     Notify.create({
       type: 'positive',
       message: `Welcome back, ${user.firstName || user.nickName}!`
@@ -101,8 +105,6 @@ const loginUser = async (): Promise<void> => {
     setTimeout(() => {
       showMissedNotifications();
     }, 2000);
-
-    void router.push('/');
   } catch (error: unknown) {
     Loading.hide();
 

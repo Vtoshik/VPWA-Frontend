@@ -46,7 +46,7 @@ export function useCurrentUser() {
     if (!currentUser.value.channels.includes(channelId)) {
       currentUser.value.channels.push(channelId);
       // Update localStorage
-      localStorage.setItem('current_user', JSON.stringify(currentUser.value));
+      localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
     }
   }
 
@@ -57,7 +57,7 @@ export function useCurrentUser() {
     if (index !== -1) {
       currentUser.value.channels.splice(index, 1);
       // Update localStorage
-      localStorage.setItem('current_user', JSON.stringify(currentUser.value));
+      localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
     }
   }
 

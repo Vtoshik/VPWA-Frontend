@@ -10,12 +10,17 @@ export interface TypingData {
 }
 
 export interface MessageData {
-  id: string;
-  channelId: string;
-  userId: string;
-  nickname: string;
+  id: number;
+  channelId: number;
+  userId: number;
   text: string;
-  timestamp: string;
+  sendAt: string;
+  user: {
+    id: number;
+    nickname: string;
+    email: string;
+    status: 'online' | 'DND' | 'offline';
+  };
   mentionedUsers?: string[];
 }
 
@@ -33,14 +38,16 @@ export interface UserStatusData {
 }
 
 class WebSocketService {
-  private socket: Socket | null = null;
+  socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
 
   connect(token: string): void {
-    if (this.socket?.connected) {
-      console.log('WebSocket already connected');
-      return;
+    // Disconnect existing connection if any
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket.removeAllListeners();
+      this.socket = null;
     }
 
     this.socket = io(API_CONFIG.wsURL, {
@@ -59,6 +66,11 @@ class WebSocketService {
 
   private setupEventListeners(): void {
     if (!this.socket) return;
+
+    // Log ALL incoming events for debugging
+    this.socket.onAny((eventName, ...args) => {
+      console.log('WebSocket event received:', eventName, args);
+    });
 
     this.socket.on('connect', () => {
       console.log('WebSocket connected');

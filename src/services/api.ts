@@ -181,6 +181,14 @@ class ApiService {
     return response.data;
   }
 
+  async joinChannel(data: { name: string }): Promise<{ channel: ChannelData; message: string }> {
+    const response = await this.axiosInstance.post<{ channel: ChannelData; message: string }>(
+      '/api/channels/join',
+      data,
+    );
+    return response.data;
+  }
+
   async deleteChannel(channelId: number): Promise<{ message: string }> {
     const response = await this.axiosInstance.delete<{ message: string }>(
       `/api/channels/${channelId}`,
@@ -212,11 +220,66 @@ class ApiService {
     return response.data;
   }
 
-  async searchUserByNickname(nickname: string): Promise<{ id: number; nickname: string } | null> {
-    const response = await this.axiosInstance.get(`/api/users/search`, {
-      params: { nickname },
+  // Maybe for future for finding users
+  // async searchUserByNickname(nickname: string): Promise<{ id: number; nickname: string } | null> {
+  //   const response = await this.axiosInstance.get(`/api/users/search`, {
+  //     params: { nickname },
+  //   });
+  //   return response.data.user;
+  // }
+
+  async getChannelMessages(
+    channelId: number,
+    page = 1,
+    limit = 50,
+  ): Promise<{
+    meta: { total: number; per_page: number; current_page: number; last_page: number };
+    data: Array<{
+      id: number;
+      userId: number;
+      channelId: number;
+      text: string;
+      sendAt: string;
+      user: {
+        id: number;
+        nickname: string;
+        email: string;
+        status: 'online' | 'DND' | 'offline';
+      };
+    }>;
+  }> {
+    const response = await this.axiosInstance.get(`/api/channels/${channelId}/messages`, {
+      params: { page, limit },
     });
-    return response.data.user;
+    return response.data;
+  }
+
+  async sendMessage(channelId: number, text: string): Promise<{ message: any }> {
+    const response = await this.axiosInstance.post('/api/messages', {
+      channelId,
+      text,
+    });
+    return response.data;
+  }
+
+  async inviteToChannelByNickname(
+    channelId: number,
+    nickname: string,
+  ): Promise<{ invite: any; message?: string }> {
+    const response = await this.axiosInstance.post(`/api/channels/${channelId}/invite`, {
+      nickname,
+    });
+    return response.data;
+  }
+
+  async kickFromChannelByNickname(
+    channelId: number,
+    nickname: string,
+  ): Promise<{ message: string }> {
+    const response = await this.axiosInstance.post(`/api/channels/${channelId}/kick`, {
+      nickname,
+    });
+    return response.data;
   }
 }
 
