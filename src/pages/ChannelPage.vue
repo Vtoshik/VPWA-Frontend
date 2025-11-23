@@ -61,7 +61,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { QScrollArea, Notify } from 'quasar';
 import ChatArea from 'src/components/ChatArea.vue';
@@ -70,7 +70,6 @@ import MembersList from 'src/components/MembersList.vue';
 import type { Message, Member, Command } from 'src/components/models';
 import { getCurrentUser } from 'src/utils/auth';
 import { useChannels } from 'src/utils/useChannels';
-import { useCurrentUser } from 'src/utils/useCurrentUser';
 import { apiService } from 'src/services/api';
 import type { TypingData } from 'src/services/websocket';
 import { wsService } from 'src/services/websocket';
@@ -81,17 +80,15 @@ const router = useRouter();
 // Reactive user state
 const showMembersPanel = ref(true);
 const messages = ref<Message[]>([]);
-const localMessages = ref<Message[]>([]);
 const members = ref<{ [key: string]: Member[] }>({});
 const scrollAreaRef = ref<QScrollArea | null>(null);
 
 // Infinite scroll state
 const isLoading = ref(false);
-const hasMoreMessages = ref(true);
+const hasMoreMessages = ref(false);
 const messageOffset = ref(0);
 const MESSAGE_LIMIT = 20;
 const isUserAtBottom = ref(true);
-const allMessagesFromFile = ref<Message[]>([]);
 
 const channelId = computed(() => (route.params.id as string) || 'general');
 const messageFile = computed(() => (route.query.file as string) || '');
@@ -113,7 +110,7 @@ const channelMembers = computed(() => {
 
   return membersInChannel;
 });
-const allMessages = computed(() => [...messages.value, ...localMessages.value]);
+const allMessages = computed(() => messages.value);
 
 const currentUser = computed(() => getCurrentUser());
 const currentUserNickname = computed(() => currentUser.value?.nickName || '');
@@ -132,6 +129,13 @@ const typingUsersText = computed(() => {
 onMounted(async () => {
   try {
     const channelIdNum = Number(channelId.value);
+
+    // Join the channel room on WebSocket
+    if (!isNaN(channelIdNum)) {
+      console.log('Joining WebSocket channel room:', channelId.value);
+      wsService.joinChannel(channelId.value);
+    }
+
     const response = await apiService.getChannelMembers(channelIdNum);
 
     members.value[channelId.value] = response.members.map(
@@ -150,8 +154,18 @@ onMounted(async () => {
     await loadAllMessages();
     setupMembersListeners();
     setupTypingListeners();
+    setupMessageListeners();
   } catch (error) {
     console.error('Error loading members:', error);
+  }
+});
+
+onBeforeUnmount(() => {
+  // Leave the channel room when component unmounts
+  const channelIdNum = Number(channelId.value);
+  if (!isNaN(channelIdNum)) {
+    console.log('Leaving WebSocket channel room:', channelId.value);
+    wsService.leaveChannel(channelId.value);
   }
 });
 
@@ -202,30 +216,77 @@ function setupTypingListeners() {
   });
 }
 
-async function loadAllMessages() {
-  try {
-    // TODO: Replace with API call when backend endpoint is ready
-    // const response = await apiService.getChannelMessages(Number(channelId.value));
-    // allMessagesFromFile.value = response.messages;
+function setupMessageListeners() {
+  // Remove any existing listeners first to avoid duplicates
+  wsService.socket?.off('message:new');
 
-    // For now, check localStorage for existing messages
-    const storageKey = `channel_messages_${channelId.value}`;
-    const storedMessages = localStorage.getItem(storageKey);
+  console.log('Setting up message listeners for channel:', channelId.value);
 
-    if (storedMessages) {
-      allMessagesFromFile.value = JSON.parse(storedMessages);
+  wsService.onMessage((data) => {
+    console.log('Received message via WebSocket:', data);
+    console.log('Current channelId:', channelId.value);
+    console.log('Message channelId:', data.channelId);
+
+    // Only add message if it's for this channel
+    if (String(data.channelId) === channelId.value) {
+      const newMessage: Message = {
+        name: data.user.nickname,
+        text: [data.text],
+        stamp: new Date(data.sendAt).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        sent: String(data.userId) === currentUser.value?.id,
+        isCommand: false,
+        channelId: String(data.channelId),
+      };
+
+      console.log('Adding message to channel:', newMessage);
+      messages.value.push(newMessage);
+      console.log('Total messages now:', messages.value.length);
+
+      if (isUserAtBottom.value) {
+        scrollToBottom();
+      }
     } else {
-      // New channel - start with empty messages
-      allMessagesFromFile.value = [];
+      console.log('Message is for different channel, ignoring');
     }
+  });
+}
 
-    const totalMessages = allMessagesFromFile.value.length;
-    messages.value = allMessagesFromFile.value.slice(-MESSAGE_LIMIT);
-    messageOffset.value = Math.max(0, totalMessages - MESSAGE_LIMIT);
-    hasMoreMessages.value = messageOffset.value > 0;
+async function loadAllMessages() {
+  // Skip loading if channelId is not a valid number
+  const channelIdNum = Number(channelId.value);
+  if (isNaN(channelIdNum)) {
+    console.log('Skipping message load - channelId is not a number:', channelId.value);
+    messages.value = [];
+    return;
+  }
+
+  try {
+    // Load messages from backend
+    const response = await apiService.getChannelMessages(channelIdNum, 1, 100);
+    console.log('Loaded messages from backend:', response.data.length, 'messages');
+
+    // Convert backend messages to frontend format
+    messages.value = response.data
+      .map((msg) => ({
+        name: msg.user.nickname,
+        text: [msg.text],
+        stamp: new Date(msg.sendAt).toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+        sent: msg.userId === Number(getCurrentUser()?.id),
+        isCommand: false,
+        channelId: String(msg.channelId),
+      }))
+      .reverse();
+
+    console.log('Converted messages:', messages.value.length);
+    hasMoreMessages.value = response.meta.current_page < response.meta.last_page;
   } catch (error) {
     console.error('Error loading messages:', error);
-    allMessagesFromFile.value = [];
     messages.value = [];
   }
 }
@@ -295,48 +356,37 @@ async function loadOlderMessages() {
   }
 }
 
-function addMessage(text: string) {
-  const mentionedUsers = parseMentions(text);
-
-  const newMessage: Message = {
-    name: currentUser.value?.nickName || 'me',
-    text: [text],
-    stamp: new Date().toLocaleTimeString(),
-    sent: true,
-  };
-
-  if (mentionedUsers.length > 0) {
-    newMessage.mentionedUsers = mentionedUsers;
+async function addMessage(text: string) {
+  const channelIdNum = Number(channelId.value);
+  if (isNaN(channelIdNum)) {
+    console.error('Cannot send message - channelId is not a number:', channelId.value);
+    Notify.create({
+      type: 'negative',
+      message: 'Invalid channel',
+    });
+    return;
   }
 
-  messages.value.push(newMessage);
+  try {
+    console.log('Sending message to backend:', text, 'channelId:', channelIdNum);
+    // Send message to backend
+    const response = await apiService.sendMessage(channelIdNum, text);
+    console.log('Message sent successfully, response:', response);
 
-  // Save to localStorage using channel-specific key
-  const storageKey = `channel_messages_${channelId.value}`;
-  localStorage.setItem(storageKey, JSON.stringify(messages.value));
+    // The message will be received via WebSocket broadcast
+    // So we don't need to manually add it here
+    // Backend will broadcast it to all channel members including sender
 
-  // TODO: Send message via WebSocket when backend is ready
-  // wsService.sendMessage(channelId.value, text, mentionedUsers);
-
-  if (isUserAtBottom.value) {
-    scrollToBottom();
-  }
-}
-
-function parseMentions(text: string): string[] {
-  const mentionRegex = /@(\w+)/g;
-  const matches = text.matchAll(mentionRegex);
-  const mentioned: string[] = [];
-  const validNicknames = channelMembers.value.map((m) => m.nickName);
-
-  for (const match of matches) {
-    const nickname = match[1];
-    if (nickname && validNicknames.includes(nickname) && !mentioned.includes(nickname)) {
-      mentioned.push(nickname);
+    if (isUserAtBottom.value) {
+      scrollToBottom();
     }
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to send message',
+    });
   }
-
-  return mentioned;
 }
 
 async function executeCommand(command: Command) {
@@ -358,30 +408,50 @@ async function executeCommand(command: Command) {
           return;
         }
 
-        const { channels, createChannel } = useChannels();
-        const { addChannelToUser } = useCurrentUser();
+        const { joinChannel: join, createChannel } = useChannels();
 
-        // Check if channel already exists
-        const existingChannel = channels.value.find(
-          (ch) => ch.name.toLowerCase() === channelName.toLowerCase()
-        );
+        try {
+          // Try to join existing channel first
+          const channel = await join(channelName);
+          if (channel) {
+            showNotification(`Joined channel #${channel.name}`, 'positive');
+            void router.push(`/channel/${channel.id}`);
+          }
+        } catch (err) {
+          const error = err as { response?: { data?: { message?: string } } };
 
-        if (existingChannel) {
-          // Channel exists - just join it (add to user's channels)
-          addChannelToUser(existingChannel.id);
-          showNotification(`Joined existing channel #${existingChannel.name}`, 'positive');
-          void router.push(`/channel/${existingChannel.id}`);
-        } else {
-          // Channel doesn't exist - create it
-          try {
-            const newChannel = await createChannel(channelName, isPrivate);
-            if (newChannel) {
-              showNotification(`Created and joined channel #${channelName}`, 'positive');
-              void router.push(`/channel/${newChannel.id}`);
+          // If channel doesn't exist and user specified 'private', create it
+          if (
+            error.response?.data?.message?.includes('not found') ||
+            error.response?.data?.message?.includes('does not exist')
+          ) {
+            if (isPrivate) {
+              // Create private channel
+              try {
+                const newChannel = await createChannel(channelName, true);
+                if (newChannel) {
+                  showNotification(
+                    `Created and joined private channel #${channelName}`,
+                    'positive',
+                  );
+                  void router.push(`/channel/${newChannel.id}`);
+                }
+              } catch (createErr) {
+                const createError = createErr as { response?: { data?: { message?: string } } };
+                showNotification(
+                  createError.response?.data?.message || 'Failed to create channel',
+                  'negative',
+                );
+              }
+            } else {
+              showNotification(
+                error.response?.data?.message ||
+                  'Channel not found. Use "/join <name> private" to create a new private channel.',
+                'negative',
+              );
             }
-          } catch (err) {
-            const error = err as { response?: { data?: { message?: string } } };
-            showNotification(error.response?.data?.message || 'Failed to create channel', 'negative');
+          } else {
+            showNotification(error.response?.data?.message || 'Failed to join channel', 'negative');
           }
         }
         break;
@@ -411,31 +481,43 @@ async function executeCommand(command: Command) {
           return;
         }
 
-        const kickUserId = 123; // TODO: get from API
         const kickChannelId = Number(channelId.value);
-
-        const kickResponse = await apiService.kickFromChannel(kickChannelId, {
-          userId: kickUserId,
-        });
+        const kickResponse = await apiService.kickFromChannelByNickname(
+          kickChannelId,
+          kickNickname,
+        );
         showNotification(kickResponse.message, 'positive');
         break;
       }
-      case 'revoke':
+      case 'revoke': {
+        const revokeNickname = args[0];
+        if (!revokeNickname) {
+          showNotification('Usage: /revoke <nickname>', 'warning');
+          return;
+        }
+
+        // Revoke is same as kick for removing user from channel
+        // But in private channels, admin can use /invite to restore access
+        const revokeChannelId = Number(channelId.value);
+        const revokeResponse = await apiService.kickFromChannelByNickname(
+          revokeChannelId,
+          revokeNickname,
+        );
         showNotification(
-          command.args.length > 0 ? `Revoking invite: ${command.args[0]}` : 'Usage: /revoke <user>',
-          'info',
+          `Revoked access for ${revokeNickname}: ${revokeResponse.message}`,
+          'positive',
         );
         break;
+      }
       case 'invite': {
         const inviteNickname = args[0];
         if (!inviteNickname) {
           showNotification('Usage: /invite <nickname>', 'warning');
           return;
         }
-        const inviteUserId = 123; // TODO: get from api
 
         const inviteChannelId = Number(channelId.value);
-        await apiService.inviteToChannel(inviteChannelId, { userId: inviteUserId });
+        await apiService.inviteToChannelByNickname(inviteChannelId, inviteNickname);
         showNotification(`Invited ${inviteNickname} to channel`, 'positive');
         break;
       }
@@ -455,10 +537,23 @@ function showNotification(message: string, type: 'positive' | 'negative' | 'warn
   Notify.create({ type, message, position: 'top' });
 }
 
-// Clear local messages and typing indicators when switching channels
-watch(channelId, () => {
-  localMessages.value = [];
+// Clear messages and typing indicators when switching channels
+watch(channelId, async (newChannelId, oldChannelId) => {
+  // Leave old channel room
+  if (oldChannelId && !isNaN(Number(oldChannelId))) {
+    console.log('Leaving old channel room:', oldChannelId);
+    wsService.leaveChannel(oldChannelId);
+  }
+
+  // Join new channel room
+  if (newChannelId && !isNaN(Number(newChannelId))) {
+    console.log('Joining new channel room:', newChannelId);
+    wsService.joinChannel(newChannelId);
+  }
+
+  messages.value = [];
   typingUsers.value = [];
+  await loadAllMessages();
   scrollToBottom(true);
 });
 
