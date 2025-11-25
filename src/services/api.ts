@@ -246,6 +246,7 @@ class ApiService {
         email: string;
         status: 'online' | 'DND' | 'offline';
       };
+      mentionedUserIds?: number[];
     }>;
   }> {
     const response = await this.axiosInstance.get(`/api/channels/${channelId}/messages`, {
@@ -277,6 +278,16 @@ class ApiService {
     nickname: string,
   ): Promise<{ message: string }> {
     const response = await this.axiosInstance.post(`/api/channels/${channelId}/kick`, {
+      nickname,
+    });
+    return response.data;
+  }
+
+  async revokeFromChannelByNickname(
+    channelId: number,
+    nickname: string,
+  ): Promise<{ message: string }> {
+    const response = await this.axiosInstance.post(`/api/channels/${channelId}/revoke`, {
       nickname,
     });
     return response.data;

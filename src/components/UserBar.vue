@@ -7,7 +7,7 @@
     </q-item-section>
 
     <q-item-section class="user-info">
-      <div class="user-name">{{ currentUser?.firstName }} {{ currentUser?.lastName }}</div>
+      <div class="user-name">{{ currentUser?.nickName }}</div>
       <div class="user-status" :class="getStatusClass(currentUser?.status)">
         <q-icon :name="getStatusIcon(currentUser?.status)" size="xs" class="status-icon" />
         {{ currentUser?.status || 'offline' }}
@@ -46,7 +46,7 @@
 
         <!-- Name Changes -->
         <q-item clickable v-close-popup @click="openRenameDialog = true">
-          <q-item-section>Change name</q-item-section>
+          <q-item-section>Change nickname</q-item-section>
         </q-item>
 
         <!-- Logout -->
@@ -56,21 +56,20 @@
       </q-list>
     </q-menu>
 
-    <!-- Dialog for name changes -->
+    <!-- CHANGE NICKNAME DIALOG -->
     <q-dialog v-model="openRenameDialog">
       <q-card class="q-pa-md bg-dark text-white">
         <q-card-section>
-          <div class="text-h6">Change username</div>
+          <div class="text-h6">Change nickname</div>
         </q-card-section>
 
         <q-card-section>
-          <q-input v-model="newFirstName" label="First Name" filled dense />
-          <q-input v-model="newLastName" label="Last Name" filled dense class="q-mt-sm" />
+          <q-input v-model="newNickName" label="Nickname" filled dense />
         </q-card-section>
 
         <q-card-actions align="right">
           <q-btn flat label="Cancel" color="grey" v-close-popup />
-          <q-btn flat label="Save" color="primary" @click="saveNewName" />
+          <q-btn flat label="Save" color="primary" @click="saveNewNick" />
         </q-card-actions>
       </q-card>
     </q-dialog>
@@ -88,8 +87,7 @@ const router = useRouter();
 const menu = ref(false);
 const openRenameDialog = ref(false);
 const currentUser = ref<Member | null>(null);
-const newFirstName = ref('');
-const newLastName = ref('');
+const newNickName = ref('');
 
 onMounted(() => {
   const stored = localStorage.getItem('currentUser');
@@ -229,13 +227,30 @@ function addSimulatedMessages() {
   });
 }
 
-function saveNewName() {
-  if (currentUser.value) {
-    currentUser.value.firstName = newFirstName.value || currentUser.value.firstName;
-    currentUser.value.lastName = newLastName.value || currentUser.value.lastName;
+function saveNewNick() {
+  if (!currentUser.value) return;
 
-    localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
+  const nick = newNickName.value.trim();
+
+  if (nick.length === 0) {
+    Notify.create({
+      type: 'warning',
+      message: 'Nickname cannot be empty',
+      position: 'top',
+    });
+    return;
   }
+
+  currentUser.value.nickName = nick;
+
+  localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
+
+  Notify.create({
+    type: 'positive',
+    message: 'Nickname changed!',
+    position: 'top',
+  });
+
   openRenameDialog.value = false;
 }
 
@@ -415,5 +430,37 @@ async function logoutUser() {
   .user-name {
     font-size: 12px;
   }
+}
+
+/* Dialog styling */
+:deep(.q-dialog .q-input input) {
+  color: #ffffff !important;
+}
+
+/* Label (Nickname) lighter color */
+:deep(.q-dialog .q-field__label) {
+  color: #b5bac1 !important;
+}
+
+/* Field background Discord-style */
+:deep(.q-dialog .q-field--filled .q-field__control) {
+  background: #2b2d31 !important;
+  border-radius: 6px;
+  color: #ffffff !important;
+}
+
+/* Field underline */
+:deep(.q-dialog .q-field--filled .q-field__control:before) {
+  border-bottom-color: #777 !important;
+}
+:deep(.q-dialog .q-field--filled .q-field__control:hover:before) {
+  border-bottom-color: #b5bac1 !important;
+}
+
+/* SAVE button light text like CANCEL */
+:deep(.q-dialog .q-card-actions .q-btn) {
+  color: #dcddde !important; /* Discord light gray */
+  font-weight: 600;
+  opacity: 1 !important;
 }
 </style>

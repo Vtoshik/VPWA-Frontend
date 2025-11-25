@@ -1,6 +1,7 @@
 <template>
   <q-layout view="lHh Lpr lFf" style="height: 100vh">
-    <!--left side bar - channels list-->
+
+    <!-- LEFT SIDEBAR -->
     <q-drawer
       v-model="leftDrawerOpen"
       show-if-above
@@ -12,7 +13,27 @@
       <div class="drawer-inner bg-secondary">
         <div class="drawer-header-section">
           <div class="drawer-header-wrapper">
+
+            <!-- TITLE -->
             <div class="drawer-header">Channels</div>
+
+            <!-- HIDE DRAWER BUTTON -->
+            <q-btn
+              flat
+              dense
+              round
+              size="sm"
+              icon="chevron_left"
+              class="hide-drawer-btn"
+              @click="leftDrawerOpen = false"
+              aria-label="Hide sidebar"
+            >
+              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0,8]">
+                Hide sidebar
+              </q-tooltip>
+            </q-btn>
+
+            <!-- CREATE CHANNEL BUTTON -->
             <q-btn
               flat
               dense
@@ -23,12 +44,14 @@
               @click="showCreateChannelDialog = true"
               aria-label="Create channel"
             >
-              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
+              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0,8]">
                 Create channel
               </q-tooltip>
             </q-btn>
           </div>
         </div>
+
+        <!-- CHANNELS LIST -->
         <q-scroll-area class="drawer-scroll">
           <q-list class="channels-list">
             <ChannelComponent
@@ -42,25 +65,42 @@
             />
           </q-list>
         </q-scroll-area>
+
+        <!-- USER BAR -->
         <div class="drawer-userbar-container">
           <UserBar />
         </div>
       </div>
 
-      <!-- Resize Handle -->
+      <!-- RESIZE HANDLE -->
       <div class="resize-handle" @mousedown="startResize">
         <div class="resize-handle-line"></div>
       </div>
     </q-drawer>
 
-    <!--main content area - channel page-->
+
+    <!-- FLOATING OPEN-BUTTON -->
+    <q-btn
+      v-if="!leftDrawerOpen"
+      class="open-drawer-btn"
+      round
+      color="primary"
+      icon="menu"
+      size="md"
+      @click="leftDrawerOpen = true"
+    />
+
+
+    <!-- MAIN PAGE CONTENT -->
     <q-page-container class="full-height">
       <router-view />
     </q-page-container>
 
-    <!-- Create Channel Dialog -->
+
+    <!-- CREATE CHANNEL DIALOG -->
     <q-dialog v-model="showCreateChannelDialog">
       <q-card class="create-channel-card">
+
         <q-card-section class="dialog-header">
           <div class="text-h6">Create Channel</div>
         </q-card-section>
@@ -82,10 +122,10 @@
             color="primary"
             class="private-checkbox"
           />
+
           <div class="channel-type-hint">
-            {{
-              newChannelIsPrivate ? 'Only invited members can join' : 'Anyone can join this channel'
-            }}
+            {{ newChannelIsPrivate ? 'Only invited members can join' :
+             'Anyone can join this channel' }}
           </div>
         </q-card-section>
 
@@ -100,6 +140,7 @@
             :disable="!newChannelName.trim()"
           />
         </q-card-actions>
+
       </q-card>
     </q-dialog>
   </q-layout>
@@ -554,4 +595,44 @@ function stopResize() {
     display: none;
   }
 }
+.open-drawer-btn {
+  position: fixed;
+  left: 12px;
+  top: 10%;
+  transform: translateY(-50%);
+  z-index: 2000;
+  opacity: 0.55;
+  backdrop-filter: blur(4px);
+  background: rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  transition: opacity 0.2s ease, background 0.2s ease;
+}
+
+.open-drawer-btn:hover {
+  opacity: 0.95;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+
+.q-splitter__separator {
+  background: transparent !important;
+}
+
+.q-splitter--dark .q-splitter__separator {
+  background: transparent !important;
+}
+
+
+/* Hide button inside drawer */
+.hide-drawer-btn {
+  color: #949ba4;
+  margin-right: 6px;
+  transition: all 0.2s ease;
+}
+
+.hide-drawer-btn:hover {
+  color: #ffffff;
+  background: rgba(79, 84, 92, 0.32);
+}
+
 </style>

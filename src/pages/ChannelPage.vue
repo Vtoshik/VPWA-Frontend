@@ -29,6 +29,7 @@
             :message-file="messageFile"
             :all-messages="allMessages"
             :current-user-nickname="currentUserNickname"
+            :current-user-id="currentUser?.id ? Number(currentUser.id) : undefined"
             @update-messages="messages = $event"
           />
         </q-scroll-area>
@@ -73,7 +74,9 @@ import { useChannels } from 'src/utils/useChannels';
 import { apiService } from 'src/services/api';
 import type { TypingData } from 'src/services/websocket';
 import { wsService } from 'src/services/websocket';
+import { useQuasar } from 'quasar';
 
+const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
 
@@ -86,14 +89,22 @@ const scrollAreaRef = ref<QScrollArea | null>(null);
 // Infinite scroll state
 const isLoading = ref(false);
 const hasMoreMessages = ref(false);
-const messageOffset = ref(0);
 const MESSAGE_LIMIT = 20;
 const isUserAtBottom = ref(true);
 
 const channelId = computed(() => (route.params.id as string) || 'general');
 const messageFile = computed(() => (route.query.file as string) || '');
+
+const { channels } = useChannels();
+
+const selectedChannel = computed(() =>
+  channels.value.find(ch => ch.id === channelId.value)
+);
+
 const channelName = computed(() => {
-  return channelId.value.charAt(0).toUpperCase() + channelId.value.slice(1);
+  return selectedChannel.value
+    ? selectedChannel.value.name
+    : `channel-${channelId.value}`;
 });
 const channelMembers = computed(() => {
   const membersInChannel = members.value[channelId.value] || [];
@@ -160,6 +171,22 @@ onMounted(async () => {
   }
 });
 
+onMounted(() => {
+  if ($q.screen.lt.md) {
+    showMembersPanel.value = false;
+  }
+});
+
+watch(
+  () => $q.screen.width,
+  () => {
+    if ($q.screen.lt.md) {
+      showMembersPanel.value = false;
+    }
+  }
+);
+
+
 onBeforeUnmount(() => {
   // Leave the channel room when component unmounts
   const channelIdNum = Number(channelId.value);
@@ -170,10 +197,26 @@ onBeforeUnmount(() => {
 });
 
 function setupMembersListeners() {
-  wsService.onUserJoinedChannel((data) => {
-    if (data.channelId === channelId.value) {
-      // TODO: завантажити інфо про користувача
-    }
+  wsService.onUserJoinedChannel(async (data) => {
+    if (data.channelId !== channelId.value) return;
+
+    const channelIdNum = Number(channelId.value);
+
+    // Завантажуємо оновлений список учасників
+    const response = await apiService.getChannelMembers(channelIdNum);
+
+    members.value[channelId.value] = response.members.map(
+      (m): Member => ({
+        id: String(m.userId),
+        firstName: '',
+        lastName: '',
+        nickName: m.nickname,
+        email: '',
+        password: '',
+        status: m.status,
+        channels: [channelId.value],
+      }),
+    );
   });
 
   wsService.onUserLeftChannel((data) => {
@@ -239,11 +282,45 @@ function setupMessageListeners() {
         sent: String(data.userId) === currentUser.value?.id,
         isCommand: false,
         channelId: String(data.channelId),
+        mentionedUserIds: data.mentionedUserIds || [],
       };
 
       console.log('Adding message to channel:', newMessage);
       messages.value.push(newMessage);
       console.log('Total messages now:', messages.value.length);
+
+      // Show notification based on user settings
+      const isMentioned =
+        data.mentionedUserIds &&
+        currentUser.value?.id &&
+        data.mentionedUserIds.includes(Number(currentUser.value.id));
+
+      // Check if message is not from current user
+      const isFromOtherUser = String(data.userId) !== currentUser.value?.id;
+
+      if (isFromOtherUser && currentUser.value) {
+        // If user wants notifications only for mentions
+        if (currentUser.value.notifyOnMentionOnly) {
+          if (isMentioned) {
+            Notify.create({
+              type: 'info',
+              message: `${data.user.nickname} mentioned you in #${channelName.value}`,
+              position: 'top-right',
+              timeout: 3000,
+            });
+          }
+        } else {
+          // Show notification for all messages
+          Notify.create({
+            type: 'info',
+            message: isMentioned
+              ? `${data.user.nickname} mentioned you in #${channelName.value}`
+              : `New message from ${data.user.nickname} in #${channelName.value}`,
+            position: 'top-right',
+            timeout: 3000,
+          });
+        }
+      }
 
       if (isUserAtBottom.value) {
         scrollToBottom();
@@ -280,6 +357,7 @@ async function loadAllMessages() {
         sent: msg.userId === Number(getCurrentUser()?.id),
         isCommand: false,
         channelId: String(msg.channelId),
+        mentionedUserIds: msg.mentionedUserIds || [],
       }))
       .reverse();
 
@@ -326,19 +404,37 @@ async function loadOlderMessages() {
   isLoading.value = true;
 
   try {
+    const channelIdNum = Number(channelId.value);
+    if (isNaN(channelIdNum)) return;
+
     const scrollTarget = scrollAreaRef.value?.getScrollTarget();
     const oldScrollHeight = scrollTarget?.scrollHeight || 0;
 
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Calculate next page to load
+    const currentPage = Math.floor(messages.value.length / MESSAGE_LIMIT) + 1;
+    const nextPage = currentPage + 1;
 
-    const toLoad = Math.min(MESSAGE_LIMIT, messageOffset.value);
-    const startIndex = messageOffset.value - toLoad;
-    const olderMessages = allMessagesFromFile.value.slice(startIndex, messageOffset.value);
+    // Load next page of messages
+    const response = await apiService.getChannelMessages(channelIdNum, nextPage, MESSAGE_LIMIT);
 
-    if (olderMessages.length > 0) {
+    if (response.data.length > 0) {
+      const olderMessages = response.data
+        .map((msg) => ({
+          name: msg.user.nickname,
+          text: [msg.text],
+          stamp: new Date(msg.sendAt).toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          }),
+          sent: msg.userId === Number(getCurrentUser()?.id),
+          isCommand: false,
+          channelId: String(msg.channelId),
+          mentionedUserIds: msg.mentionedUserIds || [],
+        }))
+        .reverse();
+
       messages.value = [...olderMessages, ...messages.value];
-      messageOffset.value = startIndex;
-      hasMoreMessages.value = messageOffset.value > 0;
+      hasMoreMessages.value = response.meta.current_page < response.meta.last_page;
     } else {
       hasMoreMessages.value = false;
     }
@@ -517,8 +613,24 @@ async function executeCommand(command: Command) {
         }
 
         const inviteChannelId = Number(channelId.value);
+
         await apiService.inviteToChannelByNickname(inviteChannelId, inviteNickname);
         showNotification(`Invited ${inviteNickname} to channel`, 'positive');
+
+        // 🔥 Автоматично оновлюємо список учасників без перезавантаження
+        const response = await apiService.getChannelMembers(inviteChannelId);
+
+        members.value[channelId.value] = response.members.map(m => ({
+          id: String(m.userId),
+          firstName: "",
+          lastName: "",
+          nickName: m.nickname,
+          email: "",
+          password: "",
+          status: m.status,
+          channels: [channelId.value],
+        }));
+
         break;
       }
       default:
@@ -796,4 +908,21 @@ watch(
   transform: translateX(100%);
   opacity: 0;
 }
+.chat-main::-webkit-scrollbar {
+  width: 0 !important;
+}
+
+.chat-main {
+  scrollbar-width: none !important; /* Firefox */
+}
+
+/* Ховаємо Quasar кастомний скролбар */
+.chat-main .q-scrollarea__thumb {
+  opacity: 0 !important;
+}
+
+.chat-main .q-scrollarea__track {
+  opacity: 0 !important;
+}
+
 </style>

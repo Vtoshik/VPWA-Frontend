@@ -6,7 +6,7 @@ export type Message = {
   isCommand?: boolean;
   isLocal?: boolean;
   channelId?: string;
-  mentionedUsers?: string[];
+  mentionedUserIds?: number[];
 };
 
 export type Member = {
@@ -21,6 +21,7 @@ export type Member = {
   password: string;
   channels: string[];
   pendingInvitations?: string[];
+  notifyOnMentionOnly?: boolean;
 };
 
 export type Channel = {

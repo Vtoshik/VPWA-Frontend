@@ -21,7 +21,7 @@ export interface MessageData {
     email: string;
     status: 'online' | 'DND' | 'offline';
   };
-  mentionedUsers?: string[];
+  mentionedUserIds?: number[];
 }
 
 export interface ChannelData {
