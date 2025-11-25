@@ -18,25 +18,23 @@
       <q-btn flat dense round icon="settings" size="sm" @click="menu = true" class="settings-icon" />
     </q-item-section>
 
-    <!-- MENU -->
+    <!-- Menu -->
     <q-menu v-model="menu">
       <q-list>
+        <!-- Status Selection -->
         <q-item-label header>Set Status</q-item-label>
-
         <q-item clickable v-close-popup @click="changeStatus('online')">
           <q-item-section avatar>
             <q-icon name="circle" color="positive" size="xs" />
           </q-item-section>
           <q-item-section>Online</q-item-section>
         </q-item>
-
         <q-item clickable v-close-popup @click="changeStatus('DND')">
           <q-item-section avatar>
             <q-icon name="do_not_disturb_on" color="negative" size="xs" />
           </q-item-section>
           <q-item-section>Do Not Disturb</q-item-section>
         </q-item>
-
         <q-item clickable v-close-popup @click="changeStatus('offline')">
           <q-item-section avatar>
             <q-icon name="circle" color="grey" size="xs" />
@@ -46,10 +44,12 @@
 
         <q-separator />
 
+        <!-- Name Changes -->
         <q-item clickable v-close-popup @click="openRenameDialog = true">
           <q-item-section>Change nickname</q-item-section>
         </q-item>
 
+        <!-- Logout -->
         <q-item clickable v-close-popup @click="logoutUser">
           <q-item-section>Logout</q-item-section>
         </q-item>
@@ -73,7 +73,6 @@
         </q-card-actions>
       </q-card>
     </q-dialog>
-
   </q-item>
 </template>
 
@@ -88,11 +87,7 @@ const router = useRouter();
 const menu = ref(false);
 const openRenameDialog = ref(false);
 const currentUser = ref<Member | null>(null);
-const newFirstName = ref('');
-const newLastName = ref('');
-const newNickName = ref(''); 
-
-
+const newNickName = ref('');
 
 onMounted(() => {
   const stored = localStorage.getItem('currentUser');
@@ -100,33 +95,6 @@ onMounted(() => {
     currentUser.value = JSON.parse(stored);
   }
 });
-
-function saveNewNick() {
-  if (!currentUser.value) return;
-
-  const nick = newNickName.value.trim();
-
-  if (nick.length === 0) {
-    Notify.create({
-      type: 'warning',
-      message: 'Nickname cannot be empty',
-      position: 'top',
-    });
-    return;
-  }
-
-  currentUser.value.nickName = nick;
-
-  localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
-
-  Notify.create({
-    type: 'positive',
-    message: 'Nickname changed!',
-    position: 'top',
-  });
-
-  openRenameDialog.value = false;
-}
 
 function getStatusIcon(status?: 'online' | 'DND' | 'offline'): string {
   switch (status) {
@@ -257,6 +225,33 @@ function addSimulatedMessages() {
       }
     }
   });
+}
+
+function saveNewNick() {
+  if (!currentUser.value) return;
+
+  const nick = newNickName.value.trim();
+
+  if (nick.length === 0) {
+    Notify.create({
+      type: 'warning',
+      message: 'Nickname cannot be empty',
+      position: 'top',
+    });
+    return;
+  }
+
+  currentUser.value.nickName = nick;
+
+  localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
+
+  Notify.create({
+    type: 'positive',
+    message: 'Nickname changed!',
+    position: 'top',
+  });
+
+  openRenameDialog.value = false;
 }
 
 async function logoutUser() {
@@ -436,23 +431,25 @@ async function logoutUser() {
     font-size: 12px;
   }
 }
+
+/* Dialog styling */
 :deep(.q-dialog .q-input input) {
   color: #ffffff !important;
 }
 
-/* --- LABEL (Nickname) світліший --- */
+/* Label (Nickname) lighter color */
 :deep(.q-dialog .q-field__label) {
   color: #b5bac1 !important;
 }
 
-/* --- Фон поля Discord-стиль --- */
+/* Field background Discord-style */
 :deep(.q-dialog .q-field--filled .q-field__control) {
   background: #2b2d31 !important;
   border-radius: 6px;
   color: #ffffff !important;
 }
 
-/* --- Підкреслення поля --- */
+/* Field underline */
 :deep(.q-dialog .q-field--filled .q-field__control:before) {
   border-bottom-color: #777 !important;
 }
@@ -460,7 +457,7 @@ async function logoutUser() {
   border-bottom-color: #b5bac1 !important;
 }
 
-/* --- SAVE робимо як CANCEL (світлий текст) --- */
+/* SAVE button light text like CANCEL */
 :deep(.q-dialog .q-card-actions .q-btn) {
   color: #dcddde !important; /* Discord light gray */
   font-weight: 600;

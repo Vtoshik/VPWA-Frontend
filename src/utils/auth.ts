@@ -24,6 +24,7 @@ function convertBackendUserToMember(backendUser: AuthResponse['user']): Member {
     isTyping: false,
     typingText: '',
     pendingInvitations: [],
+    notifyOnMentionOnly: backendUser.notifyOnMentionOnly || false,
   };
 }
 
@@ -49,6 +50,7 @@ export function getCurrentUser(): Member | null {
       isTyping: user.isTyping,
       typingText: user.typingText,
       pendingInvitations: user.pendingInvitations,
+      notifyOnMentionOnly: user.notifyOnMentionOnly || false,
     };
   } catch {
     console.error('Failed to parse current user from localStorage');

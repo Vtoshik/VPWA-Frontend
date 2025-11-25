@@ -143,10 +143,8 @@
 
       </q-card>
     </q-dialog>
-
   </q-layout>
 </template>
-
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';

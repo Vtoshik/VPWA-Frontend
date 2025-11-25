@@ -71,7 +71,6 @@ import { useRouter, useRoute } from 'vue-router';
 import { Notify } from 'quasar';
 import type { Channel } from './models';
 import { useCurrentUser } from 'src/utils/useCurrentUser';
-import { getCurrentUser } from 'src/utils/auth';
 import { useChannels } from 'src/utils/useChannels';
 
 const props = defineProps<{
@@ -192,7 +191,6 @@ async function handleLeaveChannel() {
     if (route.params.id === props.channel.id) {
       void router.push('/');
     }
-
   } catch (err: any) {
     Notify.create({
       type: 'negative',
@@ -201,7 +199,6 @@ async function handleLeaveChannel() {
     });
   }
 }
-
 </script>
 
 <style scoped>
