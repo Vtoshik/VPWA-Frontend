@@ -36,7 +36,7 @@
               :key="channel.id"
               :channel="channel"
               :is-selected="selectedChannel?.id === channel.id"
-              :is-invited="currentUser?.pendingInvitations?.includes(channel.id) ?? false"
+              :is-invited="invitations.some((inv) => String(inv.channelId) === channel.id)"
               @channel-selected="handleChannelSelected"
               @channel-left="loadChannels"
             />
@@ -116,7 +116,7 @@ import { useCurrentUser } from 'src/utils/useCurrentUser';
 import { useChannels } from 'src/utils/useChannels';
 
 const leftDrawerOpen = ref(false);
-const { channels, createChannel: createNewChannel, loadChannels } = useChannels();
+const { channels, invitations, createChannel: createNewChannel, loadChannels } = useChannels();
 const router = useRouter();
 const selectedChannel = ref<Channel | null>(null);
 
@@ -138,15 +138,27 @@ const availableChannels = computed(() => {
   if (!currentUser.value) return [];
 
   const userChannelIds = userChannels.value;
-  const pendingInvitations = currentUser.value.pendingInvitations || [];
 
+  // Get invited channel IDs from API invitations
+  const invitedChannelIds = invitations.value.map((inv) => String(inv.channelId));
+
+  console.log('Computing availableChannels:', {
+    userChannelIds,
+    invitedChannelIds,
+    allChannels: channels.value.map((ch) => ({ id: ch.id, name: ch.name })),
+  });
+
+  // Include user's channels and invited channels
   const allChannels = channels.value.filter(
-    (channel) => userChannelIds.includes(channel.id) || pendingInvitations.includes(channel.id),
+    (channel) => userChannelIds.includes(channel.id) || invitedChannelIds.includes(channel.id),
   );
 
+  console.log('Filtered channels:', allChannels.map((ch) => ({ id: ch.id, name: ch.name })));
+
+  // Sort: invited channels first, then regular channels
   return allChannels.sort((a, b) => {
-    const aIsInvited = pendingInvitations.includes(a.id);
-    const bIsInvited = pendingInvitations.includes(b.id);
+    const aIsInvited = invitedChannelIds.includes(a.id);
+    const bIsInvited = invitedChannelIds.includes(b.id);
 
     if (aIsInvited && !bIsInvited) return -1;
     if (!aIsInvited && bIsInvited) return 1;
@@ -206,11 +218,16 @@ onMounted(() => {
   }
 });
 
-function handleChannelSelected(channel: Channel) {
+async function handleChannelSelected(channel: Channel) {
   selectedChannel.value = channel;
 
-  if (currentUser.value?.pendingInvitations?.includes(channel.id)) {
-    acceptChannelInvitation(currentUser.value.id, channel.id);
+  // Check if this is an invited channel
+  const invitation = invitations.value.find((inv) => String(inv.channelId) === channel.id);
+
+  if (invitation) {
+    // Don't navigate yet - user needs to accept/decline first
+    // We'll handle this in the ChannelComponent
+    return;
   }
 }
 

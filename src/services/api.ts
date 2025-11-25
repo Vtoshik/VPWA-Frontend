@@ -281,6 +281,31 @@ class ApiService {
     });
     return response.data;
   }
+
+  async getInvitations(): Promise<{
+    invites: Array<{
+      id: number;
+      channelId: number;
+      channelName: string;
+      fromUserId: number;
+      fromNickname: string;
+      status: string;
+      createdAt: string;
+    }>;
+  }> {
+    const response = await this.axiosInstance.get('/api/invites');
+    return response.data;
+  }
+
+  async acceptInvitation(inviteId: number): Promise<{ message: string; channel?: ChannelData }> {
+    const response = await this.axiosInstance.post(`/api/invites/${inviteId}/accept`);
+    return response.data;
+  }
+
+  async rejectInvitation(inviteId: number): Promise<{ message: string }> {
+    const response = await this.axiosInstance.post(`/api/invites/${inviteId}/reject`);
+    return response.data;
+  }
 }
 
 export const apiService = new ApiService();
