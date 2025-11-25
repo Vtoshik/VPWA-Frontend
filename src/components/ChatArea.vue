@@ -1,16 +1,20 @@
 <template>
-  <div class="chat-messages">
-    <q-chat-message
-      v-for="(message, index) in displayMessages"
-      :key="message.stamp + message.name + index"
-      :name="message.name"
-      :text="message.text"
-      :stamp="message.stamp"
-      :sent="message.sent"
-      :bg-color="getMessageBgColor(message)"
-      :text-color="'white'"
-      :class="{ 'mentioned-message': isMentionedInMessage(message) }"
-    />
+  <div class="chat-wrapper">
+    <div class="chat-scroll">
+      <div class="chat-messages">
+        <q-chat-message
+          v-for="(message, index) in displayMessages"
+          :key="message.stamp + message.name + index"
+          :name="message.name"
+          :text="message.text"
+          :stamp="message.stamp"
+          :sent="message.sent"
+          :bg-color="getMessageBgColor(message)"
+          text-color="white"
+          :class="{ 'mentioned-message': isMentionedInMessage(message) }"
+        />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -93,6 +97,34 @@ onMounted(() => {
   padding: 16px;
 }
 
+.chat-wrapper {
+  height: 100%;
+  width: 100%;
+  overflow: hidden; /* блокує зайвий скрол */
+}
+
+.chat-scroll {
+  height: 100%;
+  width: 100%;
+  overflow-y: auto;     /* Справжній скрол тут */
+  overflow-x: hidden;   /* не дозволяємо горизонтальний */
+  padding-right: 8px;   /* трохи щоб не обрізати */
+}
+
+/* Ховаємо потворні нативні скроллбари */
+.chat-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 5px;
+}
+
+.chat-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .mentioned-message :deep(.q-message-text) {
   border-left: 4px solid #ff9800;
   box-shadow: 0 2px 8px rgba(255, 152, 0, 0.3);
@@ -135,4 +167,14 @@ onMounted(() => {
     box-shadow: 0 0 0 10px rgba(255, 152, 0, 0);
   }
 }
+
+.q-footer {
+  overflow: hidden !important;
+}
+
+.q-page-container {
+  overflow-x: hidden !important;
+}
+
+
 </style>

@@ -87,7 +87,7 @@ const emit = defineEmits<{
 
 const router = useRouter();
 const route = useRoute();
-const { leaveChannel } = useCurrentUser();
+const { leaveChannel } = useChannels();
 const { invitations, acceptInvitation, rejectInvitation } = useChannels();
 const { addChannelToUser } = useCurrentUser();
 
@@ -177,40 +177,31 @@ async function handleDeclineInvite() {
   }
 }
 
-function handleLeaveChannel() {
-  const user = getCurrentUser();
-  if (!user) {
-    Notify.create({
-      type: 'negative',
-      message: 'Error: User not logged in',
-      position: 'top',
-    });
-    return;
-  }
+async function handleLeaveChannel() {
+  try {
+    await leaveChannel(Number(props.channel.id));
 
-  const success = leaveChannel(user.id, props.channel.id);
-
-  if (success) {
     Notify.create({
       type: 'positive',
-      message: `Successfully left channel: ${props.channel.name}`,
+      message: `You left channel: ${props.channel.name}`,
       position: 'top',
     });
 
     emit('channel-left', props.channel.id);
 
-    const currentChannelId = route.params.id as string;
-    if (props.channel.id === currentChannelId) {
+    if (route.params.id === props.channel.id) {
       void router.push('/');
     }
-  } else {
+
+  } catch (err: any) {
     Notify.create({
       type: 'negative',
-      message: `Failed to leave channel: ${props.channel.name}`,
+      message: err.response?.data?.message || 'Failed to leave channel',
       position: 'top',
     });
   }
 }
+
 </script>
 
 <style scoped>

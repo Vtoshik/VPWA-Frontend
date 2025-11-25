@@ -8,6 +8,12 @@ import { useChannels } from './utils/useChannels';
 import { wsService } from 'src/services/websocket';
 import { getCurrentUser } from 'src/utils/auth';
 
+onMounted(() => {
+  if ('Notification' in window) {
+    Notification.requestPermission();
+  }
+});
+
 onMounted(async () => {
   const user = getCurrentUser();
   const token = localStorage.getItem('auth_token');

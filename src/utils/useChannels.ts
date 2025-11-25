@@ -186,14 +186,17 @@ export function useChannels() {
     }
   }
 
-  async function leaveChannel(channelId: number): Promise<void> {
-    try {
-      await apiService.leaveChannel(channelId);
-    } catch (err: any) {
-      error.value = err.response?.data?.message || 'Failed to leave channel';
-      throw err;
-    }
+  async function leaveChannel(channelId: number) {
+  try {
+    await apiService.leaveChannel(channelId);
+
+    // 🧹 Видаляємо канал з локального списку
+    channels.value = channels.value.filter(ch => ch.id !== String(channelId));
+  } catch (err: any) {
+    error.value = err.response?.data?.message || "Failed to leave channel";
+    throw err;
   }
+}
 
   function setupSocketListeners(): void {
     wsService.onChannelCreated((channel) => {

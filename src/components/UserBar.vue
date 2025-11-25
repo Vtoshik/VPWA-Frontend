@@ -7,7 +7,7 @@
     </q-item-section>
 
     <q-item-section class="user-info">
-      <div class="user-name">{{ currentUser?.firstName }} {{ currentUser?.lastName }}</div>
+      <div class="user-name">{{ currentUser?.nickName }}</div>
       <div class="user-status" :class="getStatusClass(currentUser?.status)">
         <q-icon :name="getStatusIcon(currentUser?.status)" size="xs" class="status-icon" />
         {{ currentUser?.status || 'offline' }}
@@ -18,23 +18,25 @@
       <q-btn flat dense round icon="settings" size="sm" @click="menu = true" class="settings-icon" />
     </q-item-section>
 
-    <!-- Menu -->
+    <!-- MENU -->
     <q-menu v-model="menu">
       <q-list>
-        <!-- Status Selection -->
         <q-item-label header>Set Status</q-item-label>
+
         <q-item clickable v-close-popup @click="changeStatus('online')">
           <q-item-section avatar>
             <q-icon name="circle" color="positive" size="xs" />
           </q-item-section>
           <q-item-section>Online</q-item-section>
         </q-item>
+
         <q-item clickable v-close-popup @click="changeStatus('DND')">
           <q-item-section avatar>
             <q-icon name="do_not_disturb_on" color="negative" size="xs" />
           </q-item-section>
           <q-item-section>Do Not Disturb</q-item-section>
         </q-item>
+
         <q-item clickable v-close-popup @click="changeStatus('offline')">
           <q-item-section avatar>
             <q-icon name="circle" color="grey" size="xs" />
@@ -44,36 +46,34 @@
 
         <q-separator />
 
-        <!-- Name Changes -->
         <q-item clickable v-close-popup @click="openRenameDialog = true">
-          <q-item-section>Change name</q-item-section>
+          <q-item-section>Change nickname</q-item-section>
         </q-item>
 
-        <!-- Logout -->
         <q-item clickable v-close-popup @click="logoutUser">
           <q-item-section>Logout</q-item-section>
         </q-item>
       </q-list>
     </q-menu>
 
-    <!-- Dialog for name changes -->
+    <!-- CHANGE NICKNAME DIALOG -->
     <q-dialog v-model="openRenameDialog">
       <q-card class="q-pa-md bg-dark text-white">
         <q-card-section>
-          <div class="text-h6">Change username</div>
+          <div class="text-h6">Change nickname</div>
         </q-card-section>
 
         <q-card-section>
-          <q-input v-model="newFirstName" label="First Name" filled dense />
-          <q-input v-model="newLastName" label="Last Name" filled dense class="q-mt-sm" />
+          <q-input v-model="newNickName" label="Nickname" filled dense />
         </q-card-section>
 
         <q-card-actions align="right">
           <q-btn flat label="Cancel" color="grey" v-close-popup />
-          <q-btn flat label="Save" color="primary" @click="saveNewName" />
+          <q-btn flat label="Save" color="primary" @click="saveNewNick" />
         </q-card-actions>
       </q-card>
     </q-dialog>
+
   </q-item>
 </template>
 
@@ -90,6 +90,9 @@ const openRenameDialog = ref(false);
 const currentUser = ref<Member | null>(null);
 const newFirstName = ref('');
 const newLastName = ref('');
+const newNickName = ref(''); 
+
+
 
 onMounted(() => {
   const stored = localStorage.getItem('currentUser');
@@ -97,6 +100,33 @@ onMounted(() => {
     currentUser.value = JSON.parse(stored);
   }
 });
+
+function saveNewNick() {
+  if (!currentUser.value) return;
+
+  const nick = newNickName.value.trim();
+
+  if (nick.length === 0) {
+    Notify.create({
+      type: 'warning',
+      message: 'Nickname cannot be empty',
+      position: 'top',
+    });
+    return;
+  }
+
+  currentUser.value.nickName = nick;
+
+  localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
+
+  Notify.create({
+    type: 'positive',
+    message: 'Nickname changed!',
+    position: 'top',
+  });
+
+  openRenameDialog.value = false;
+}
 
 function getStatusIcon(status?: 'online' | 'DND' | 'offline'): string {
   switch (status) {
@@ -227,16 +257,6 @@ function addSimulatedMessages() {
       }
     }
   });
-}
-
-function saveNewName() {
-  if (currentUser.value) {
-    currentUser.value.firstName = newFirstName.value || currentUser.value.firstName;
-    currentUser.value.lastName = newLastName.value || currentUser.value.lastName;
-
-    localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
-  }
-  openRenameDialog.value = false;
 }
 
 async function logoutUser() {
@@ -415,5 +435,35 @@ async function logoutUser() {
   .user-name {
     font-size: 12px;
   }
+}
+:deep(.q-dialog .q-input input) {
+  color: #ffffff !important;
+}
+
+/* --- LABEL (Nickname) світліший --- */
+:deep(.q-dialog .q-field__label) {
+  color: #b5bac1 !important;
+}
+
+/* --- Фон поля Discord-стиль --- */
+:deep(.q-dialog .q-field--filled .q-field__control) {
+  background: #2b2d31 !important;
+  border-radius: 6px;
+  color: #ffffff !important;
+}
+
+/* --- Підкреслення поля --- */
+:deep(.q-dialog .q-field--filled .q-field__control:before) {
+  border-bottom-color: #777 !important;
+}
+:deep(.q-dialog .q-field--filled .q-field__control:hover:before) {
+  border-bottom-color: #b5bac1 !important;
+}
+
+/* --- SAVE робимо як CANCEL (світлий текст) --- */
+:deep(.q-dialog .q-card-actions .q-btn) {
+  color: #dcddde !important; /* Discord light gray */
+  font-weight: 600;
+  opacity: 1 !important;
 }
 </style>
