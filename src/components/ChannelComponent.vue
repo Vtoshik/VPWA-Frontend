@@ -14,7 +14,39 @@
         <q-badge v-if="isInvited" color="primary" class="invite-badge">Invited</q-badge>
       </q-item-label>
     </q-item-section>
-    <q-item-section side v-if="!isInvited">
+    <q-item-section side v-if="isInvited" class="invite-actions">
+      <q-btn
+        flat
+        dense
+        round
+        size="sm"
+        icon="close"
+        color="negative"
+        class="decline-btn"
+        @click.stop="handleDeclineInvite"
+        aria-label="Decline invitation"
+      >
+        <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
+          Decline
+        </q-tooltip>
+      </q-btn>
+      <q-btn
+        flat
+        dense
+        round
+        size="sm"
+        icon="check"
+        color="positive"
+        class="accept-btn"
+        @click.stop="handleAcceptInvite"
+        aria-label="Accept invitation"
+      >
+        <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
+          Accept
+        </q-tooltip>
+      </q-btn>
+    </q-item-section>
+    <q-item-section side v-else>
       <q-btn
         flat
         dense
@@ -40,6 +72,7 @@ import { Notify } from 'quasar';
 import type { Channel } from './models';
 import { useCurrentUser } from 'src/utils/useCurrentUser';
 import { getCurrentUser } from 'src/utils/auth';
+import { useChannels } from 'src/utils/useChannels';
 
 const props = defineProps<{
   channel: Channel;
@@ -55,13 +88,93 @@ const emit = defineEmits<{
 const router = useRouter();
 const route = useRoute();
 const { leaveChannel } = useCurrentUser();
+const { invitations, acceptInvitation, rejectInvitation } = useChannels();
+const { addChannelToUser } = useCurrentUser();
 
 function selectChannel() {
+  // If invited, don't navigate - user needs to accept/decline first
+  if (props.isInvited) {
+    return;
+  }
+
   emit('channel-selected', props.channel);
   void router.push({
     path: `/channel/${props.channel.id}`,
     query: { file: props.channel.messageFile },
   });
+}
+
+async function handleAcceptInvite() {
+  const invitation = invitations.value.find((inv) => String(inv.channelId) === props.channel.id);
+
+  if (!invitation) {
+    Notify.create({
+      type: 'negative',
+      message: 'Invitation not found',
+      position: 'top',
+    });
+    return;
+  }
+
+  try {
+    await acceptInvitation(invitation.id);
+
+    // Add channel to user's channel list in localStorage
+    addChannelToUser(props.channel.id);
+
+    Notify.create({
+      type: 'positive',
+      message: `Successfully joined channel: ${props.channel.name}`,
+      position: 'top',
+    });
+
+    // Navigate to the channel after accepting
+    void router.push({
+      path: `/channel/${props.channel.id}`,
+      query: { file: props.channel.messageFile },
+    });
+  } catch (err: any) {
+    Notify.create({
+      type: 'negative',
+      message: err.response?.data?.message || 'Failed to accept invitation',
+      position: 'top',
+    });
+  }
+}
+
+async function handleDeclineInvite() {
+  const invitation = invitations.value.find((inv) => String(inv.channelId) === props.channel.id);
+
+  if (!invitation) {
+    Notify.create({
+      type: 'negative',
+      message: 'Invitation not found',
+      position: 'top',
+    });
+    return;
+  }
+
+  try {
+    await rejectInvitation(invitation.id);
+    Notify.create({
+      type: 'info',
+      message: `Declined invitation to: ${props.channel.name}`,
+      position: 'top',
+    });
+
+    // Channel will be automatically removed from the list by rejectInvitation()
+    // Navigate to home if we were on this channel
+    const currentChannelId = route.params.id as string;
+    if (props.channel.id === currentChannelId) {
+      void router.push('/');
+    }
+  } catch (err: any) {
+    Notify.create({
+      type: 'negative',
+      message: err.response?.data?.message || 'Failed to decline invitation',
+      position: 'top',
+    });
+  }
 }
 
 function handleLeaveChannel() {
@@ -185,5 +298,32 @@ function handleLeaveChannel() {
 .leave-btn:hover {
   color: #ed4245;
   background: rgba(237, 66, 69, 0.1);
+}
+
+.invite-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.accept-btn,
+.decline-btn {
+  opacity: 1;
+  transition: all 0.2s ease;
+}
+
+.accept-btn {
+  color: #3ba55d;
+}
+
+.accept-btn:hover {
+  background: rgba(59, 165, 93, 0.2);
+}
+
+.decline-btn {
+  color: #ed4245;
+}
+
+.decline-btn:hover {
+  background: rgba(237, 66, 69, 0.2);
 }
 </style>

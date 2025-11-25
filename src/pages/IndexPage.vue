@@ -34,5 +34,15 @@
 
 .welcome-message {
   text-align: center;
+  max-width: 600px;
+}
+
+.invitations-section {
+  width: 100%;
+}
+
+.invitation-card {
+  background: #2f3136;
+  color: white;
 }
 </style>

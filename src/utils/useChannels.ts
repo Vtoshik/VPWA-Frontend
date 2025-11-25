@@ -17,10 +17,23 @@ function convertToChannel(channelData: ChannelData): Channel {
   };
 }
 
+// Global state - shared across all useChannels() calls
 const channels = ref<Channel[]>([]);
 const isLoading = ref(false);
 const error = ref<string | null>(null);
+const invitations = ref<
+  Array<{
+    id: number;
+    channelId: number;
+    channelName: string;
+    fromUserId: number;
+    fromNickname: string;
+    status: string;
+    createdAt: string;
+  }>
+>([]);
 
+// Singleton pattern - return the same instance
 export function useChannels() {
   async function loadChannels(): Promise<void> {
     isLoading.value = true;
@@ -34,6 +47,91 @@ export function useChannels() {
       console.error('Error loading channels:', err);
     } finally {
       isLoading.value = false;
+    }
+  }
+
+  async function loadInvitations(): Promise<void> {
+    try {
+      console.log('Loading invitations from API...');
+      const response = await apiService.getInvitations();
+      invitations.value = response.invites;
+      console.log('Loaded invitations:', invitations.value);
+
+      // Add invited channels to channels list if they don't exist
+      for (const invite of invitations.value) {
+        const channelExists = channels.value.some((ch) => ch.id === String(invite.channelId));
+        if (!channelExists) {
+          // Create a minimal channel object for the invitation
+          const invitedChannel: Channel = {
+            id: String(invite.channelId),
+            name: invite.channelName,
+            isPrivate: false, // We don't know yet, will be updated when accepted
+            messageFile: `/api/channels/${invite.channelId}/messages`,
+          };
+          channels.value.push(invitedChannel);
+          console.log('Added invited channel to list:', invitedChannel);
+        }
+      }
+    } catch (err: any) {
+      console.error('Error loading invitations:', err);
+      console.error('Error details:', err.response?.data);
+      // Don't throw - just log the error and continue with empty invitations
+      invitations.value = [];
+    }
+  }
+
+  async function acceptInvitation(inviteId: number): Promise<void> {
+    try {
+      const response = await apiService.acceptInvitation(inviteId);
+
+      // Remove invitation from list
+      invitations.value = invitations.value.filter((inv) => inv.id !== inviteId);
+
+      // Update the channel with full data from backend if it was returned
+      if (response.channel) {
+        const channelId = String(response.channel.id);
+        const existingChannelIndex = channels.value.findIndex((ch) => ch.id === channelId);
+
+        if (existingChannelIndex !== -1) {
+          // Replace the minimal channel data with full data from backend
+          channels.value[existingChannelIndex] = convertToChannel(response.channel);
+        } else {
+          // Add the channel if it doesn't exist
+          channels.value.push(convertToChannel(response.channel));
+        }
+      } else {
+        // Fallback: reload all channels if backend didn't return channel data
+        await loadChannels();
+      }
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to accept invitation';
+      throw err;
+    }
+  }
+
+  async function rejectInvitation(inviteId: number): Promise<void> {
+    try {
+      const invitation = invitations.value.find((inv) => inv.id === inviteId);
+      await apiService.rejectInvitation(inviteId);
+
+      // Remove invitation from list
+      invitations.value = invitations.value.filter((inv) => inv.id !== inviteId);
+
+      // Remove the invited channel from channels list if user is not a member
+      if (invitation) {
+        const channelId = String(invitation.channelId);
+        const isUserMember = await apiService
+          .getChannels()
+          .then((res) => res.channels.some((ch) => String(ch.id) === channelId))
+          .catch(() => false);
+
+        if (!isUserMember) {
+          channels.value = channels.value.filter((ch) => ch.id !== channelId);
+        }
+      }
+    } catch (err: any) {
+      error.value = err.response?.data?.message || 'Failed to reject invitation';
+      throw err;
     }
   }
 
@@ -120,6 +218,8 @@ export function useChannels() {
 
     wsService.onChannelInvite((data) => {
       console.log('Invited to channel:', data);
+      // Reload invitations to get the new one
+      void loadInvitations();
     });
   }
 
@@ -134,9 +234,13 @@ export function useChannels() {
     channels,
     isLoading,
     error,
+    invitations,
     publicChannels,
     privateChannels,
     loadChannels,
+    loadInvitations,
+    acceptInvitation,
+    rejectInvitation,
     createChannel,
     joinChannel,
     deleteChannel,

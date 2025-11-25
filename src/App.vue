@@ -18,8 +18,9 @@ onMounted(async () => {
       wsService.connect(token);
     }
 
-    const { loadChannels, setupSocketListeners } = useChannels();
+    const { loadChannels, loadInvitations, setupSocketListeners } = useChannels();
     await loadChannels();
+    await loadInvitations();
 
     setupSocketListeners();
   } else if (wsService.isConnected()) {
