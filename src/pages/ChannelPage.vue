@@ -202,7 +202,6 @@ function setupMembersListeners() {
 
     const channelIdNum = Number(channelId.value);
 
-    // Завантажуємо оновлений список учасників
     const response = await apiService.getChannelMembers(channelIdNum);
 
     members.value[channelId.value] = response.members.map(
@@ -235,10 +234,13 @@ function setupMembersListeners() {
 function setupTypingListeners() {
   wsService.onUserTyping((data: TypingData) => {
     if (data.channelId === channelId.value && data.userId !== currentUser.value?.id) {
-      const existingIndex = typingUsers.value.findIndex((u) => u.id === data.userId);
 
+      //
+      // === ОНОВЛЮЄ typingUsers (для "is typing..." внизу)
+      //
+      const existingIndex = typingUsers.value.findIndex(u => u.id === data.userId);
       if (existingIndex !== -1) {
-        typingUsers.value[existingIndex]!.typingText = data.text;
+        typingUsers.value[existingIndex].typingText = data.text;
       } else {
         typingUsers.value.push({
           id: data.userId,
@@ -246,18 +248,41 @@ function setupTypingListeners() {
           typingText: data.text,
         });
       }
+
+      //
+      // === ОНОВЛЮЄ members[channelId] (щоб MembersList бачив текст)
+      //
+      const list = members.value[channelId.value];
+      if (list) {
+        const member = list.find(m => m.id === String(data.userId));
+        if (member) {
+          member.isTyping = true;
+          member.typingText = data.text;   // ← ключове місце!!!
+        }
+      }
     }
   });
 
   wsService.onUserStoppedTyping((data) => {
     if (data.channelId === channelId.value) {
-      const index = typingUsers.value.findIndex((u) => u.id === data.userId);
-      if (index !== -1) {
-        typingUsers.value.splice(index, 1);
+
+      // remove from typingUsers
+      const index = typingUsers.value.findIndex(u => u.id === data.userId);
+      if (index !== -1) typingUsers.value.splice(index, 1);
+
+      // clean members
+      const list = members.value[channelId.value];
+      if (list) {
+        const member = list.find(m => m.id === String(data.userId));
+        if (member) {
+          member.isTyping = false;
+          member.typingText = "";
+        }
       }
     }
   });
 }
+
 
 function setupMessageListeners() {
   // Remove any existing listeners first to avoid duplicates
