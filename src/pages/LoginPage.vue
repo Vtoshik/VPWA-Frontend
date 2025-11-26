@@ -168,6 +168,15 @@ const goRegister = (): void => {
 </script>
 
 <style scoped>
+
+.auth-input :deep(.q-field__native) {
+  background: #1e1f22 !important;   /* чорний фон */
+  color: #f2f3f5 !important;        /* білий текст */
+}
+
+.auth-input :deep(.q-field__control) {
+  background: #1e1f22 !important;
+}
 .login-page-wrapper {
   display: flex;
   align-items: center;
