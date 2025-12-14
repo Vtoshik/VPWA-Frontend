@@ -26,9 +26,7 @@
         @click.stop="handleDeclineInvite"
         aria-label="Decline invitation"
       >
-        <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
-          Decline
-        </q-tooltip>
+        <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]"> Decline </q-tooltip>
       </q-btn>
       <q-btn
         flat
@@ -41,9 +39,7 @@
         @click.stop="handleAcceptInvite"
         aria-label="Accept invitation"
       >
-        <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
-          Accept
-        </q-tooltip>
+        <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]"> Accept </q-tooltip>
       </q-btn>
     </q-item-section>
     <q-item-section side v-else>
@@ -69,9 +65,10 @@
 import { defineEmits } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { Notify } from 'quasar';
-import type { Channel } from './models';
-import { useCurrentUser } from 'src/utils/useCurrentUser';
-import { useChannels } from 'src/utils/useChannels';
+import type { Channel } from '../services/models';
+import { useCurrentUser } from 'src/utils/CurrentUser';
+import { useChannels } from 'src/utils/Channels';
+import type { ApiError } from '../services/models';
 
 const props = defineProps<{
   channel: Channel;
@@ -99,7 +96,6 @@ function selectChannel() {
   emit('channel-selected', props.channel);
   void router.push({
     path: `/channel/${props.channel.id}`,
-    query: { file: props.channel.messageFile },
   });
 }
 
@@ -130,12 +126,12 @@ async function handleAcceptInvite() {
     // Navigate to the channel after accepting
     void router.push({
       path: `/channel/${props.channel.id}`,
-      query: { file: props.channel.messageFile },
     });
-  } catch (err: any) {
+  } catch (err) {
+    const error = err as ApiError;
     Notify.create({
       type: 'negative',
-      message: err.response?.data?.message || 'Failed to accept invitation',
+      message: error.response?.data?.message || 'Failed to accept invitation',
       position: 'top',
     });
   }
@@ -167,10 +163,11 @@ async function handleDeclineInvite() {
     if (props.channel.id === currentChannelId) {
       void router.push('/');
     }
-  } catch (err: any) {
+  } catch (err) {
+    const error = err as ApiError;
     Notify.create({
       type: 'negative',
-      message: err.response?.data?.message || 'Failed to decline invitation',
+      message: error.response?.data?.message || 'Failed to decline invitation',
       position: 'top',
     });
   }
@@ -191,10 +188,11 @@ async function handleLeaveChannel() {
     if (route.params.id === props.channel.id) {
       void router.push('/');
     }
-  } catch (err: any) {
+  } catch (err) {
+    const error = err as ApiError;
     Notify.create({
       type: 'negative',
-      message: err.response?.data?.message || 'Failed to leave channel',
+      message: error.response?.data?.message || 'Failed to leave channel',
       position: 'top',
     });
   }

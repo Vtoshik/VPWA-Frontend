@@ -1,15 +1,10 @@
-import type { Member } from 'src/components/models';
-import mockMembersData from 'src/assets/test-data/mock-members.json';
-import { apiService, type AuthResponse } from 'src/services/api';
+import type { Member } from 'src/services/models';
+import { apiService } from 'src/services/api';
 import { wsService } from 'src/services/websocket';
+import type { AuthResponse } from 'src/services/models';
 
 const CURRENT_USER_KEY = 'currentUser';
 const USERS_KEY = 'users';
-
-type MemberFromJson = Omit<Member, 'channels'>;
-type MembersDataFromJson = {
-  [channelId: string]: MemberFromJson[];
-};
 
 function convertBackendUserToMember(backendUser: AuthResponse['user']): Member {
   return {
@@ -66,7 +61,6 @@ export async function login(email: string, password: string): Promise<Member> {
   const response = await apiService.login({ email, password });
   const member = convertBackendUserToMember(response.user);
 
-  // Load user's channels from backend
   try {
     const channelsResponse = await apiService.getChannels();
     member.channels = channelsResponse.channels.map((ch) => String(ch.id));
@@ -77,7 +71,17 @@ export async function login(email: string, password: string): Promise<Member> {
 
   setCurrentUser(member);
 
-  wsService.connect(response.token);
+  // Only connect WebSocket if user is not offline
+  if (member.status !== 'offline') {
+    console.log(`User status is ${member.status} - connecting WebSocket`);
+    wsService.connect(response.token);
+  } else {
+    console.log('User status is offline - WebSocket will not connect');
+  }
+
+  if ('Notification' in window && Notification.permission === 'default') {
+    await Notification.requestPermission();
+  }
 
   return member;
 }
@@ -122,7 +126,7 @@ export async function logout(): Promise<void> {
   // Try to notify backend, but don't fail if it errors
   try {
     await apiService.logout();
-  } catch (error) {
+  } catch {
     // Ignore logout errors - we've already cleared local state
     console.log('Backend logout skipped (already logged out locally)');
   }
@@ -230,64 +234,4 @@ export function removeUserFromChannel(userId: string, channelId: string): boolea
   }
 
   return false;
-}
-
-function loadMockUsers(): Member[] {
-  const membersData = mockMembersData as MembersDataFromJson;
-  const usersMap = new Map<string, Member>();
-
-  Object.entries(membersData).forEach(([channelId, members]) => {
-    members.forEach((member) => {
-      if (usersMap.has(member.id)) {
-        const existingUser = usersMap.get(member.id)!;
-        if (!existingUser.channels.includes(channelId)) {
-          existingUser.channels.push(channelId);
-        }
-        if (member.pendingInvitations && !existingUser.pendingInvitations) {
-          existingUser.pendingInvitations = member.pendingInvitations;
-        }
-      } else {
-        usersMap.set(member.id, {
-          ...member,
-          channels: [channelId],
-        });
-      }
-    });
-  });
-
-  return Array.from(usersMap.values());
-}
-
-export function initMockUsers(): void {
-  const existingUsers = localStorage.getItem(USERS_KEY);
-
-  if (!existingUsers) {
-    const mockUsers = loadMockUsers();
-    localStorage.setItem(USERS_KEY, JSON.stringify(mockUsers));
-  } else {
-    try {
-      const users = JSON.parse(existingUsers) as Member[];
-      const mockUsers = loadMockUsers();
-      const existingEmails = new Set(users.map((u) => u.email));
-      const newMockUsers = mockUsers.filter((mu) => !existingEmails.has(mu.email));
-
-      if (newMockUsers.length > 0) {
-        users.push(...newMockUsers);
-        localStorage.setItem(USERS_KEY, JSON.stringify(users));
-      }
-    } catch (e) {
-      console.error('Failed to merge mock users:', e);
-    }
-  }
-}
-
-export function reloadMockUsers(): void {
-  const mockUsers = loadMockUsers();
-  localStorage.setItem(USERS_KEY, JSON.stringify(mockUsers));
-}
-
-if (typeof window !== 'undefined') {
-  (window as unknown as { getCurrentUser: typeof getCurrentUser }).getCurrentUser = getCurrentUser;
-  (window as unknown as { reloadMockUsers: typeof reloadMockUsers }).reloadMockUsers =
-    reloadMockUsers;
 }

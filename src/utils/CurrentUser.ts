@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import type { Member } from 'src/components/models';
+import type { Member } from 'src/services/models';
 import {
   getCurrentUser,
   addUserToChannel,

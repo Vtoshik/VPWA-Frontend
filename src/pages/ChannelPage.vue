@@ -2,7 +2,18 @@
   <q-page class="channel-page">
     <!-- Channel Header -->
     <div class="channel-header">
-      <div class="channel-title"><span class="channel-hash">#</span>{{ channelName }}</div>
+      <div class="channel-title">
+        <q-icon
+          v-if="selectedChannel?.isPrivate"
+          name="lock"
+          size="18px"
+          class="channel-lock"
+        />
+        <span v-else class="channel-hash">#</span>
+
+        {{ channelName }}
+      </div>
+
       <q-btn
         flat
         dense
@@ -14,6 +25,15 @@
       />
     </div>
 
+
+    <!-- Offline Mode Banner -->
+    <transition name="slide-down">
+      <div v-if="isOfflineMode" class="offline-banner">
+        <q-icon name="cloud_off" size="20px" class="offline-icon" />
+        <span class="offline-text">Offline Mode - Viewing cached messages</span>
+      </div>
+    </transition>
+
     <!-- Main content area -->
     <div class="channel-content">
       <!-- Chat area -->
@@ -21,16 +41,14 @@
         <q-scroll-area ref="scrollAreaRef" class="chat-main" @scroll="handleScroll">
           <!-- Loading indicator -->
           <div v-if="isLoading" class="loading-older">
-            <q-spinner color="primary" size="24px" />
-            <span class="loading-text">Loading messages...</span>
+            <q-spinner color="primary" size="32px" />
+            <span class="loading-text">Loading older messages...</span>
           </div>
 
           <ChatArea
-            :message-file="messageFile"
             :all-messages="allMessages"
             :current-user-nickname="currentUserNickname"
             :current-user-id="currentUser?.id ? Number(currentUser.id) : undefined"
-            @update-messages="messages = $event"
           />
         </q-scroll-area>
 
@@ -38,16 +56,37 @@
         <div v-if="typingUsers.length > 0" class="typing-indicator-container">
           <q-icon name="edit" color="primary" size="16px" class="typing-icon" />
           <span class="typing-text">
-            <strong>{{ typingUsersText }}</strong>
+            <strong class="typing-nickname-link" @click="showTypingPreview">{{ typingUsersText }}</strong>
             {{ typingUsers.length === 1 ? 'is' : 'are' }} typing...
           </span>
         </div>
+
+        <!-- Typing Preview Dialog -->
+        <q-dialog v-model="showTypingDialog">
+          <q-card style="min-width: 400px">
+            <q-card-section class="row items-center q-pb-none">
+              <div class="text-h6">{{ selectedTypingUser?.nickName }} is typing...</div>
+              <q-space />
+              <q-btn icon="close" flat round dense v-close-popup />
+            </q-card-section>
+
+            <q-card-section>
+              <div class="typing-preview">
+                <q-icon name="edit" color="primary" size="24px" />
+                <div class="preview-text">
+                  {{ selectedTypingUser?.typingText || 'Nothing yet...' }}
+                  <span class="blinking-cursor">|</span>
+                </div>
+              </div>
+            </q-card-section>
+          </q-card>
+        </q-dialog>
 
         <CommandLine
           class="chat-input"
           :current-user-id="currentUser?.id"
           @send-message="addMessage"
-          @command="executeCommand"
+          @command="handleCommand"
         />
       </div>
 
@@ -62,50 +101,60 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import { QScrollArea, Notify } from 'quasar';
+import { useQuasar, Notify } from 'quasar';
 import ChatArea from 'src/components/ChatArea.vue';
 import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
-import type { Message, Member, Command } from 'src/components/models';
+import type { Member, Command, TypingData } from 'src/services/models';
 import { getCurrentUser } from 'src/utils/auth';
-import { useChannels } from 'src/utils/useChannels';
+import { useChannels } from 'src/utils/Channels';
 import { apiService } from 'src/services/api';
-import type { TypingData } from 'src/services/websocket';
 import { wsService } from 'src/services/websocket';
-import { useQuasar } from 'quasar';
+import { executeCommand } from 'src/utils/commands';
+import { useChannelMessages } from 'src/utils/ChannelMessages';
 
 const $q = useQuasar();
 const route = useRoute();
 const router = useRouter();
 
+// Get loadChannels from useChannels composable
+const { loadChannels, channels } = useChannels();
+
 // Reactive user state
 const showMembersPanel = ref(true);
-const messages = ref<Message[]>([]);
 const members = ref<{ [key: string]: Member[] }>({});
-const scrollAreaRef = ref<QScrollArea | null>(null);
 
-// Infinite scroll state
-const isLoading = ref(false);
-const hasMoreMessages = ref(false);
-const MESSAGE_LIMIT = 20;
-const isUserAtBottom = ref(true);
-
-const channelId = computed(() => (route.params.id as string) || 'general');
-const messageFile = computed(() => (route.query.file as string) || '');
-
-const { channels } = useChannels();
-
-const selectedChannel = computed(() =>
-  channels.value.find(ch => ch.id === channelId.value)
-);
+const channelId = computed(() => route.params.id as string);
+const selectedChannel = computed(() => channels.value.find((ch) => ch.id === channelId.value));
 
 const channelName = computed(() => {
-  return selectedChannel.value
-    ? selectedChannel.value.name
-    : `channel-${channelId.value}`;
+  return selectedChannel.value ? selectedChannel.value.name : `channel-${channelId.value}`;
 });
+
+const currentUser = computed(() => getCurrentUser());
+const currentUserNickname = computed(() => currentUser.value?.nickName || '');
+const currentUserId = computed(() => currentUser.value?.id);
+
+// Use messages composable
+const {
+  messages,
+  isLoading,
+  isUserAtBottom,
+  scrollAreaRef,
+  loadAllMessages,
+  addMessage,
+  scrollToBottom,
+  handleScroll,
+  setupMessageListeners,
+  clearMessages,
+  loadMessagesFromCache,
+} = useChannelMessages(channelId, channelName, currentUserId);
+
+// Track if we're in offline mode
+const isOfflineMode = ref(false);
+
 const channelMembers = computed(() => {
   const membersInChannel = members.value[channelId.value] || [];
 
@@ -121,10 +170,12 @@ const channelMembers = computed(() => {
 
   return membersInChannel;
 });
+
 const allMessages = computed(() => messages.value);
 
-const currentUser = computed(() => getCurrentUser());
-const currentUserNickname = computed(() => currentUser.value?.nickName || '');
+function handleCommand(command: Command) {
+  void executeCommand(command, channelId, members, showMembersPanel, router);
+}
 
 // Typing users tracking
 const typingUsers = ref<{ id: string; nickName: string; typingText?: string }[]>([]);
@@ -137,18 +188,80 @@ const typingUsersText = computed(() => {
   return `${typingUsers.value[0]?.nickName} and ${typingUsers.value.length - 1} others`;
 });
 
-onMounted(async () => {
+// Typing preview dialog
+const showTypingDialog = ref(false);
+const selectedTypingUser = ref<{ id: string; nickName: string; typingText?: string } | null>(null);
+
+function showTypingPreview() {
+  // Only show preview if there's exactly one user typing
+  if (typingUsers.value.length === 1) {
+    selectedTypingUser.value = typingUsers.value[0]!;
+    showTypingDialog.value = true;
+  }
+}
+
+// Update selected typing user in real-time when they continue typing
+watch(
+  typingUsers,
+  (newTypingUsers) => {
+    if (selectedTypingUser.value && showTypingDialog.value) {
+      const updated = newTypingUsers.find((u) => u.id === selectedTypingUser.value?.id);
+      if (updated) {
+        selectedTypingUser.value = updated;
+      } else {
+        // User stopped typing - close dialog
+        showTypingDialog.value = false;
+        selectedTypingUser.value = null;
+      }
+    }
+  },
+  { deep: true },
+);
+
+// Function to initialize WebSocket-related functionality
+function initializeWebSocketFeatures() {
+  const channelIdNum = Number(channelId.value);
+
+  if (!isNaN(channelIdNum) && wsService.isConnected()) {
+    console.log('Initializing WebSocket features for channel:', channelId.value);
+
+    // Join channel room
+    wsService.joinChannel(channelId.value);
+
+    // Setup status change listener
+    wsService.onUserStatusChanged((data) => {
+      console.log('User status changed:', data);
+
+      const channelMembers = members.value[channelId.value];
+      if (channelMembers) {
+        const member = channelMembers.find(
+          (m) => m.id === String(data.userId)
+        );
+        if (member) {
+          member.status = data.status;
+        }
+      }
+    });
+
+    // Setup all listeners
+    setupMembersListeners();
+    setupTypingListeners();
+    setupMessageListeners();
+
+    console.log('WebSocket features initialized');
+  }
+}
+
+// Listen for WebSocket reconnection
+async function handleWebSocketReconnect() {
+  console.log('WebSocket reconnected - reinitializing features and reloading data');
+  isOfflineMode.value = false;
+
   try {
     const channelIdNum = Number(channelId.value);
 
-    // Join the channel room on WebSocket
-    if (!isNaN(channelIdNum)) {
-      console.log('Joining WebSocket channel room:', channelId.value);
-      wsService.joinChannel(channelId.value);
-    }
-
+    // Reload members
     const response = await apiService.getChannelMembers(channelIdNum);
-
     members.value[channelId.value] = response.members.map(
       (m): Member => ({
         id: String(m.userId),
@@ -162,10 +275,64 @@ onMounted(async () => {
       }),
     );
 
+    // Reinitialize WebSocket features
+    initializeWebSocketFeatures();
+
+    // Reload messages (fresh from server, replacing cache)
     await loadAllMessages();
-    setupMembersListeners();
-    setupTypingListeners();
-    setupMessageListeners();
+  } catch (error) {
+    console.error('Error reloading data after reconnect:', error);
+  }
+}
+
+onMounted(async () => {
+  try {
+    const channelIdNum = Number(channelId.value);
+
+    // Check if user is online before loading data
+    const isOnline = wsService.isConnected();
+
+    if (isOnline) {
+      isOfflineMode.value = false;
+
+      // Load members (only when online)
+      const response = await apiService.getChannelMembers(channelIdNum);
+
+      members.value[channelId.value] = response.members.map(
+        (m): Member => ({
+          id: String(m.userId),
+          firstName: '',
+          lastName: '',
+          nickName: m.nickname,
+          email: '',
+          password: '',
+          status: m.status,
+          channels: [channelId.value],
+        }),
+      );
+
+      // Initialize WebSocket features
+      initializeWebSocketFeatures();
+
+      // Load messages
+      await loadAllMessages();
+    } else {
+      console.log('User is offline - loading cached messages');
+      isOfflineMode.value = true;
+
+      // Try to load cached messages
+      const hasCache = loadMessagesFromCache();
+      if (!hasCache) {
+        console.log('No cached messages available for this channel');
+      }
+    }
+
+    // Always listen for WebSocket reconnection events (even if offline now)
+    window.addEventListener('websocket:connected', () => void handleWebSocketReconnect());
+
+    // Listen for kick/revoke events
+    window.addEventListener('channel:kicked', handleKicked);
+    window.addEventListener('channel:revoked', handleRevoked);
   } catch (error) {
     console.error('Error loading members:', error);
   }
@@ -183,39 +350,84 @@ watch(
     if ($q.screen.lt.md) {
       showMembersPanel.value = false;
     }
-  }
+  },
 );
 
+watch(
+  () => currentUser.value?.status,
+  (newStatus, oldStatus) => {
+    if (oldStatus === 'offline' && newStatus !== 'offline') {
+      console.log('User status changed from offline to', newStatus);
+      // WebSocket reconnection will be handled by the global event listener
+      // Just reload channels list
+      void loadChannels();
+    }
+  },
+);
+
+// Store event handlers so we can properly remove them
+const handleKicked = ((event: CustomEvent) => {
+  const { channelId: kickedChannelId, channelName, kickedBy } = event.detail;
+  if (kickedChannelId === channelId.value) {
+    Notify.create({
+      type: 'negative',
+      message: `You were kicked from #${channelName} by ${kickedBy}`,
+      position: 'top',
+      timeout: 5000,
+    });
+    void router.push('/');
+  }
+}) as EventListener;
+
+const handleRevoked = ((event: CustomEvent) => {
+  const { channelId: revokedChannelId, channelName, revokedBy } = event.detail;
+  if (revokedChannelId === channelId.value) {
+    Notify.create({
+      type: 'negative',
+      message: `Your access to #${channelName} was revoked by ${revokedBy}`,
+      position: 'top',
+      timeout: 5000,
+    });
+    void router.push('/');
+  }
+}) as EventListener;
 
 onBeforeUnmount(() => {
-  // Leave the channel room when component unmounts
+  // Remove WebSocket reconnect listener
+  window.removeEventListener('websocket:connected', () => void handleWebSocketReconnect());
+
+  // Remove kick/revoke event listeners
+  window.removeEventListener('channel:kicked', handleKicked);
+  window.removeEventListener('channel:revoked', handleRevoked);
+
+  // Leave the channel room when component unmounts (only if WebSocket is connected)
   const channelIdNum = Number(channelId.value);
-  if (!isNaN(channelIdNum)) {
+  if (!isNaN(channelIdNum) && wsService.isConnected()) {
     console.log('Leaving WebSocket channel room:', channelId.value);
     wsService.leaveChannel(channelId.value);
   }
 });
 
 function setupMembersListeners() {
-  wsService.onUserJoinedChannel(async (data) => {
+  wsService.onUserJoinedChannel((data) => {
     if (data.channelId !== channelId.value) return;
 
     const channelIdNum = Number(channelId.value);
 
-    const response = await apiService.getChannelMembers(channelIdNum);
-
-    members.value[channelId.value] = response.members.map(
-      (m): Member => ({
-        id: String(m.userId),
-        firstName: '',
-        lastName: '',
-        nickName: m.nickname,
-        email: '',
-        password: '',
-        status: m.status,
-        channels: [channelId.value],
-      }),
-    );
+    void apiService.getChannelMembers(channelIdNum).then((response) => {
+      members.value[channelId.value] = response.members.map(
+        (m): Member => ({
+          id: String(m.userId),
+          firstName: '',
+          lastName: '',
+          nickName: m.nickname,
+          email: '',
+          password: '',
+          status: m.status,
+          channels: [channelId.value],
+        }),
+      );
+    });
   });
 
   wsService.onUserLeftChannel((data) => {
@@ -234,13 +446,9 @@ function setupMembersListeners() {
 function setupTypingListeners() {
   wsService.onUserTyping((data: TypingData) => {
     if (data.channelId === channelId.value && data.userId !== currentUser.value?.id) {
-
-      //
-      // === ОНОВЛЮЄ typingUsers (для "is typing..." внизу)
-      //
-      const existingIndex = typingUsers.value.findIndex(u => u.id === data.userId);
+      const existingIndex = typingUsers.value.findIndex((u) => u.id === data.userId);
       if (existingIndex !== -1) {
-        typingUsers.value[existingIndex].typingText = data.text;
+        typingUsers.value[existingIndex]!.typingText = data.text;
       } else {
         typingUsers.value.push({
           id: data.userId,
@@ -249,15 +457,12 @@ function setupTypingListeners() {
         });
       }
 
-      //
-      // === ОНОВЛЮЄ members[channelId] (щоб MembersList бачив текст)
-      //
       const list = members.value[channelId.value];
       if (list) {
-        const member = list.find(m => m.id === String(data.userId));
+        const member = list.find((m) => m.id === String(data.userId));
         if (member) {
           member.isTyping = true;
-          member.typingText = data.text;   // ← ключове місце!!!
+          member.typingText = data.text;
         }
       }
     }
@@ -265,433 +470,62 @@ function setupTypingListeners() {
 
   wsService.onUserStoppedTyping((data) => {
     if (data.channelId === channelId.value) {
-
       // remove from typingUsers
-      const index = typingUsers.value.findIndex(u => u.id === data.userId);
+      const index = typingUsers.value.findIndex((u) => u.id === data.userId);
       if (index !== -1) typingUsers.value.splice(index, 1);
 
       // clean members
       const list = members.value[channelId.value];
       if (list) {
-        const member = list.find(m => m.id === String(data.userId));
+        const member = list.find((m) => m.id === String(data.userId));
         if (member) {
           member.isTyping = false;
-          member.typingText = "";
+          member.typingText = '';
         }
       }
     }
   });
-}
-
-
-function setupMessageListeners() {
-  // Remove any existing listeners first to avoid duplicates
-  wsService.socket?.off('message:new');
-
-  console.log('Setting up message listeners for channel:', channelId.value);
-
-  wsService.onMessage((data) => {
-    console.log('Received message via WebSocket:', data);
-    console.log('Current channelId:', channelId.value);
-    console.log('Message channelId:', data.channelId);
-
-    // Only add message if it's for this channel
-    if (String(data.channelId) === channelId.value) {
-      const newMessage: Message = {
-        name: data.user.nickname,
-        text: [data.text],
-        stamp: new Date(data.sendAt).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        sent: String(data.userId) === currentUser.value?.id,
-        isCommand: false,
-        channelId: String(data.channelId),
-        mentionedUserIds: data.mentionedUserIds || [],
-      };
-
-      console.log('Adding message to channel:', newMessage);
-      messages.value.push(newMessage);
-      console.log('Total messages now:', messages.value.length);
-
-      // Show notification based on user settings
-      const isMentioned =
-        data.mentionedUserIds &&
-        currentUser.value?.id &&
-        data.mentionedUserIds.includes(Number(currentUser.value.id));
-
-      // Check if message is not from current user
-      const isFromOtherUser = String(data.userId) !== currentUser.value?.id;
-
-      if (isFromOtherUser && currentUser.value) {
-        // If user wants notifications only for mentions
-        if (currentUser.value.notifyOnMentionOnly) {
-          if (isMentioned) {
-            Notify.create({
-              type: 'info',
-              message: `${data.user.nickname} mentioned you in #${channelName.value}`,
-              position: 'top-right',
-              timeout: 3000,
-            });
-          }
-        } else {
-          // Show notification for all messages
-          Notify.create({
-            type: 'info',
-            message: isMentioned
-              ? `${data.user.nickname} mentioned you in #${channelName.value}`
-              : `New message from ${data.user.nickname} in #${channelName.value}`,
-            position: 'top-right',
-            timeout: 3000,
-          });
-        }
-      }
-
-      if (isUserAtBottom.value) {
-        scrollToBottom();
-      }
-    } else {
-      console.log('Message is for different channel, ignoring');
-    }
-  });
-}
-
-async function loadAllMessages() {
-  // Skip loading if channelId is not a valid number
-  const channelIdNum = Number(channelId.value);
-  if (isNaN(channelIdNum)) {
-    console.log('Skipping message load - channelId is not a number:', channelId.value);
-    messages.value = [];
-    return;
-  }
-
-  try {
-    // Load messages from backend
-    const response = await apiService.getChannelMessages(channelIdNum, 1, 100);
-    console.log('Loaded messages from backend:', response.data.length, 'messages');
-
-    // Convert backend messages to frontend format
-    messages.value = response.data
-      .map((msg) => ({
-        name: msg.user.nickname,
-        text: [msg.text],
-        stamp: new Date(msg.sendAt).toLocaleTimeString('en-US', {
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        sent: msg.userId === Number(getCurrentUser()?.id),
-        isCommand: false,
-        channelId: String(msg.channelId),
-        mentionedUserIds: msg.mentionedUserIds || [],
-      }))
-      .reverse();
-
-    console.log('Converted messages:', messages.value.length);
-    hasMoreMessages.value = response.meta.current_page < response.meta.last_page;
-  } catch (error) {
-    console.error('Error loading messages:', error);
-    messages.value = [];
-  }
 }
 
 function toggleMembersPanel() {
   showMembersPanel.value = !showMembersPanel.value;
 }
 
-function scrollToBottom(instant = false) {
-  void nextTick(() => {
-    if (scrollAreaRef.value) {
-      const scrollTarget = scrollAreaRef.value.getScrollTarget();
-      const scrollHeight = scrollTarget.scrollHeight;
-      const duration = instant ? 0 : 300;
-      scrollAreaRef.value.setScrollPosition('vertical', scrollHeight, duration);
-    }
-  });
-}
-
-function handleScroll(info: {
-  verticalPosition: number;
-  verticalSize: number;
-  verticalContainerSize: number;
-}) {
-  const { verticalPosition, verticalSize, verticalContainerSize } = info;
-  const scrollBottom = verticalSize - verticalPosition - verticalContainerSize;
-  isUserAtBottom.value = scrollBottom < 100;
-
-  if (verticalPosition < 50 && !isLoading.value && hasMoreMessages.value) {
-    void loadOlderMessages();
-  }
-}
-
-async function loadOlderMessages() {
-  if (isLoading.value || !hasMoreMessages.value) return;
-
-  isLoading.value = true;
-
-  try {
-    const channelIdNum = Number(channelId.value);
-    if (isNaN(channelIdNum)) return;
-
-    const scrollTarget = scrollAreaRef.value?.getScrollTarget();
-    const oldScrollHeight = scrollTarget?.scrollHeight || 0;
-
-    // Calculate next page to load
-    const currentPage = Math.floor(messages.value.length / MESSAGE_LIMIT) + 1;
-    const nextPage = currentPage + 1;
-
-    // Load next page of messages
-    const response = await apiService.getChannelMessages(channelIdNum, nextPage, MESSAGE_LIMIT);
-
-    if (response.data.length > 0) {
-      const olderMessages = response.data
-        .map((msg) => ({
-          name: msg.user.nickname,
-          text: [msg.text],
-          stamp: new Date(msg.sendAt).toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          }),
-          sent: msg.userId === Number(getCurrentUser()?.id),
-          isCommand: false,
-          channelId: String(msg.channelId),
-          mentionedUserIds: msg.mentionedUserIds || [],
-        }))
-        .reverse();
-
-      messages.value = [...olderMessages, ...messages.value];
-      hasMoreMessages.value = response.meta.current_page < response.meta.last_page;
-    } else {
-      hasMoreMessages.value = false;
-    }
-
-    await nextTick();
-    if (scrollTarget) {
-      const newScrollHeight = scrollTarget.scrollHeight;
-      const scrollDiff = newScrollHeight - oldScrollHeight;
-      scrollAreaRef.value?.setScrollPosition('vertical', scrollDiff, 0);
-    }
-  } catch (error) {
-    console.error('Error loading older messages:', error);
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-async function addMessage(text: string) {
-  const channelIdNum = Number(channelId.value);
-  if (isNaN(channelIdNum)) {
-    console.error('Cannot send message - channelId is not a number:', channelId.value);
-    Notify.create({
-      type: 'negative',
-      message: 'Invalid channel',
-    });
-    return;
-  }
-
-  try {
-    console.log('Sending message to backend:', text, 'channelId:', channelIdNum);
-    // Send message to backend
-    const response = await apiService.sendMessage(channelIdNum, text);
-    console.log('Message sent successfully, response:', response);
-
-    // The message will be received via WebSocket broadcast
-    // So we don't need to manually add it here
-    // Backend will broadcast it to all channel members including sender
-
-    if (isUserAtBottom.value) {
-      scrollToBottom();
-    }
-  } catch (error) {
-    console.error('Failed to send message:', error);
-    Notify.create({
-      type: 'negative',
-      message: 'Failed to send message',
-    });
-  }
-}
-
-async function executeCommand(command: Command) {
-  const commandName = command.name.toLowerCase();
-  const args = command.args;
-
-  try {
-    switch (command.name) {
-      case 'list':
-        showNotification('Members list displayed', 'info');
-        showMembersPanel.value = true;
-        break;
-      case 'join': {
-        const channelName = args[0];
-        const isPrivate = args[1]?.toLowerCase() === 'private';
-
-        if (!channelName) {
-          showNotification('Usage: /join <channelName> [private]', 'warning');
-          return;
-        }
-
-        const { joinChannel: join, createChannel } = useChannels();
-
-        try {
-          // Try to join existing channel first
-          const channel = await join(channelName);
-          if (channel) {
-            showNotification(`Joined channel #${channel.name}`, 'positive');
-            void router.push(`/channel/${channel.id}`);
-          }
-        } catch (err) {
-          const error = err as { response?: { data?: { message?: string } } };
-
-          // If channel doesn't exist and user specified 'private', create it
-          if (
-            error.response?.data?.message?.includes('not found') ||
-            error.response?.data?.message?.includes('does not exist')
-          ) {
-            if (isPrivate) {
-              // Create private channel
-              try {
-                const newChannel = await createChannel(channelName, true);
-                if (newChannel) {
-                  showNotification(
-                    `Created and joined private channel #${channelName}`,
-                    'positive',
-                  );
-                  void router.push(`/channel/${newChannel.id}`);
-                }
-              } catch (createErr) {
-                const createError = createErr as { response?: { data?: { message?: string } } };
-                showNotification(
-                  createError.response?.data?.message || 'Failed to create channel',
-                  'negative',
-                );
-              }
-            } else {
-              showNotification(
-                error.response?.data?.message ||
-                  'Channel not found. Use "/join <name> private" to create a new private channel.',
-                'negative',
-              );
-            }
-          } else {
-            showNotification(error.response?.data?.message || 'Failed to join channel', 'negative');
-          }
-        }
-        break;
-      }
-      case 'quit': {
-        const { deleteChannel } = useChannels();
-        const quitChannelId = Number(channelId.value);
-
-        await deleteChannel(quitChannelId);
-        showNotification('Channel deleted', 'positive');
-        void router.push('/');
-        break;
-      }
-      case 'cancel': {
-        const { leaveChannel } = useChannels();
-        const cancelChannelId = Number(channelId.value);
-
-        await leaveChannel(cancelChannelId);
-        showNotification('Left channel', 'positive');
-        void router.push('/');
-        break;
-      }
-      case 'kick': {
-        const kickNickname = args[0];
-        if (!kickNickname) {
-          showNotification('Usage: /kick <nickname>', 'warning');
-          return;
-        }
-
-        const kickChannelId = Number(channelId.value);
-        const kickResponse = await apiService.kickFromChannelByNickname(
-          kickChannelId,
-          kickNickname,
-        );
-        showNotification(kickResponse.message, 'positive');
-        break;
-      }
-      case 'revoke': {
-        const revokeNickname = args[0];
-        if (!revokeNickname) {
-          showNotification('Usage: /revoke <nickname>', 'warning');
-          return;
-        }
-
-        // Revoke is same as kick for removing user from channel
-        // But in private channels, admin can use /invite to restore access
-        const revokeChannelId = Number(channelId.value);
-        const revokeResponse = await apiService.kickFromChannelByNickname(
-          revokeChannelId,
-          revokeNickname,
-        );
-        showNotification(
-          `Revoked access for ${revokeNickname}: ${revokeResponse.message}`,
-          'positive',
-        );
-        break;
-      }
-      case 'invite': {
-        const inviteNickname = args[0];
-        if (!inviteNickname) {
-          showNotification('Usage: /invite <nickname>', 'warning');
-          return;
-        }
-
-        const inviteChannelId = Number(channelId.value);
-
-        await apiService.inviteToChannelByNickname(inviteChannelId, inviteNickname);
-        showNotification(`Invited ${inviteNickname} to channel`, 'positive');
-
-        // 🔥 Автоматично оновлюємо список учасників без перезавантаження
-        const response = await apiService.getChannelMembers(inviteChannelId);
-
-        members.value[channelId.value] = response.members.map(m => ({
-          id: String(m.userId),
-          firstName: "",
-          lastName: "",
-          nickName: m.nickname,
-          email: "",
-          password: "",
-          status: m.status,
-          channels: [channelId.value],
-        }));
-
-        break;
-      }
-      default:
-        showNotification(`Unknown command: /${commandName}`, 'warning');
-    }
-  } catch (err) {
-    const error = err as { response?: { data?: { message?: string } } };
-    showNotification(
-      error.response?.data?.message || `Failed to execute command: /${commandName}`,
-      'negative',
-    );
-  }
-}
-
-function showNotification(message: string, type: 'positive' | 'negative' | 'warning' | 'info') {
-  Notify.create({ type, message, position: 'top' });
-}
-
 // Clear messages and typing indicators when switching channels
 watch(channelId, async (newChannelId, oldChannelId) => {
-  // Leave old channel room
-  if (oldChannelId && !isNaN(Number(oldChannelId))) {
-    console.log('Leaving old channel room:', oldChannelId);
-    wsService.leaveChannel(oldChannelId);
-  }
-
-  // Join new channel room
-  if (newChannelId && !isNaN(Number(newChannelId))) {
-    console.log('Joining new channel room:', newChannelId);
-    wsService.joinChannel(newChannelId);
-  }
-
-  messages.value = [];
+  // Clear UI state first
+  clearMessages();
   typingUsers.value = [];
-  await loadAllMessages();
-  scrollToBottom(true);
+
+  // Only interact with WebSocket and load messages if connected (user is online)
+  if (wsService.isConnected()) {
+    isOfflineMode.value = false;
+
+    // Leave old channel room
+    if (oldChannelId && !isNaN(Number(oldChannelId))) {
+      console.log('Leaving old channel room:', oldChannelId);
+      wsService.leaveChannel(oldChannelId);
+    }
+
+    // Join new channel room
+    if (newChannelId && !isNaN(Number(newChannelId))) {
+      console.log('Joining new channel room:', newChannelId);
+      wsService.joinChannel(newChannelId);
+    }
+
+    // Load messages for the new channel
+    await loadAllMessages();
+    scrollToBottom(true);
+  } else {
+    console.log('User is offline - loading cached messages');
+    isOfflineMode.value = true;
+
+    // Try to load cached messages for the new channel
+    const hasCache = loadMessagesFromCache();
+    if (!hasCache) {
+      console.log('No cached messages available for channel:', newChannelId);
+    }
+  }
 });
 
 // Scroll down with new message
@@ -766,6 +600,62 @@ watch(
   }
 }
 
+/* Offline Mode Banner */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(250, 166, 26, 0.15);
+  border-bottom: 2px solid rgba(250, 166, 26, 0.4);
+  animation: fadeIn 0.3s ease-in;
+}
+
+.offline-icon {
+  color: #faa61a;
+  flex-shrink: 0;
+}
+
+.offline-text {
+  color: #faa61a;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+/* Mobile offline banner */
+@media (max-width: 767px) {
+  .offline-banner {
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .offline-text {
+    font-size: 13px;
+  }
+
+  .offline-icon {
+    font-size: 18px;
+  }
+}
+
+/* Slide down animation for offline banner */
+.slide-down-enter-active,
+.slide-down-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-down-enter-from {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
+.slide-down-leave-to {
+  transform: translateY(-100%);
+  opacity: 0;
+}
+
 /* Channel Content */
 .channel-content {
   flex: 1 1 auto;
@@ -823,6 +713,50 @@ watch(
   font-style: normal;
 }
 
+.typing-nickname-link {
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.typing-nickname-link:hover {
+  color: #00b0ff;
+  text-decoration: underline;
+}
+
+.typing-preview {
+  background: #383a40;
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.preview-text {
+  color: #dcddde;
+  font-size: 14px;
+  line-height: 1.5;
+  word-wrap: break-word;
+}
+
+.blinking-cursor {
+  animation: blink 1s infinite;
+  color: #3ba55d;
+  font-weight: bold;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
 /* Mobile typing indicator */
 @media (max-width: 767px) {
   .typing-indicator-container {
@@ -868,17 +802,20 @@ watch(
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
-  padding: 16px;
-  background: rgba(79, 84, 92, 0.08);
-  border-radius: 8px;
+  gap: 16px;
+  padding: 20px;
+  background: rgba(88, 101, 242, 0.15);
+  border-radius: 12px;
   margin: 16px;
+  border: 1px solid rgba(88, 101, 242, 0.3);
+  animation: fadeIn 0.3s ease-in;
 }
 
 .loading-text {
-  color: #b5bac1;
-  font-size: 14px;
-  font-weight: 500;
+  color: #dcddde;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 /* Members Panel */
@@ -948,6 +885,23 @@ watch(
 
 .chat-main .q-scrollarea__track {
   opacity: 0 !important;
+}
+
+.channel-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #f2f3f5;
+}
+
+.channel-lock {
+  color: #b5bac1;
+}
+
+.channel-hash {
+  color: #80848e;
 }
 
 </style>

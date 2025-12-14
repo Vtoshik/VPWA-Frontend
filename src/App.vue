@@ -4,13 +4,14 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useChannels } from './utils/useChannels';
+import { useChannels } from './utils/Channels';
+import { useGlobalNotifications } from './utils/GlobalNotifications';
 import { wsService } from 'src/services/websocket';
 import { getCurrentUser } from 'src/utils/auth';
 
 onMounted(() => {
   if ('Notification' in window) {
-    Notification.requestPermission();
+    void Notification.requestPermission();
   }
 });
 
@@ -25,10 +26,14 @@ onMounted(async () => {
     }
 
     const { loadChannels, loadInvitations, setupSocketListeners } = useChannels();
+    const { setupGlobalNotifications } = useGlobalNotifications();
+
     await loadChannels();
     await loadInvitations();
 
+    // Setup all socket listeners together
     setupSocketListeners();
+    setupGlobalNotifications();
   } else if (wsService.isConnected()) {
     // Disconnect if no valid user/token
     wsService.disconnect();

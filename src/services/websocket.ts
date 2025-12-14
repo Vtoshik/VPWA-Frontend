@@ -1,41 +1,7 @@
 import { io, type Socket } from 'socket.io-client';
 import { API_CONFIG } from 'src/services/api';
-import type { Member } from 'src/components/models';
-
-export interface TypingData {
-  userId: string;
-  channelId: string;
-  nickname: string;
-  text: string;
-}
-
-export interface MessageData {
-  id: number;
-  channelId: number;
-  userId: number;
-  text: string;
-  sendAt: string;
-  user: {
-    id: number;
-    nickname: string;
-    email: string;
-    status: 'online' | 'DND' | 'offline';
-  };
-  mentionedUserIds?: number[];
-}
-
-export interface ChannelData {
-  id: string;
-  name: string;
-  isPrivate: boolean;
-  createdBy: string;
-  createdAt: string;
-}
-
-export interface UserStatusData {
-  userId: string;
-  status: 'online' | 'DND' | 'offline';
-}
+import type { Member } from 'src/services/models';
+import type { TypingData, MessageData, ChannelData } from 'src/services/models';
 
 class WebSocketService {
   socket: Socket | null = null;
@@ -73,12 +39,16 @@ class WebSocketService {
     });
 
     this.socket.on('connect', () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected successfully');
       this.reconnectAttempts = 0;
+
+      // Emit custom event that can be listened to
+      window.dispatchEvent(new CustomEvent('websocket:connected'));
     });
 
     this.socket.on('disconnect', (reason) => {
       console.log('WebSocket disconnected:', reason);
+      window.dispatchEvent(new CustomEvent('websocket:disconnected', { detail: reason }));
     });
 
     this.socket.on('connect_error', (error) => {
@@ -116,8 +86,16 @@ class WebSocketService {
     this.socket?.on('channel:invite', callback);
   }
 
-  onChannelKick(callback: (data: { channelId: string; userId: string }) => void): void {
+  onChannelKick(
+    callback: (data: { channelId: number; channelName: string; kickedBy: string }) => void,
+  ): void {
     this.socket?.on('channel:kick', callback);
+  }
+
+  onChannelRevoke(
+    callback: (data: { channelId: number; channelName: string; revokedBy: string }) => void,
+  ): void {
+    this.socket?.on('channel:revoke', callback);
   }
 
   // Message events
@@ -139,7 +117,9 @@ class WebSocketService {
   }
 
   // User status events
-  onUserStatusChanged(callback: (data: UserStatusData) => void): void {
+  onUserStatusChanged(
+    callback: (data: { userId: string; status: 'online' | 'DND' | 'offline' }) => void,
+  ) {
     this.socket?.on('user:status-changed', callback);
   }
 
@@ -153,11 +133,23 @@ class WebSocketService {
 
   // Emit events
   joinChannel(channelId: string): void {
-    this.socket?.emit('channel:join', { channelId });
+    const channelIdNum = Number(channelId);
+    if (isNaN(channelIdNum)) {
+      console.error('❌ Attempted to join channel with invalid ID:', channelId);
+      return;
+    }
+    console.log('✅ Joining channel:', channelId);
+    this.socket?.emit('channel:join', { channelId: channelIdNum });
   }
 
   leaveChannel(channelId: string): void {
-    this.socket?.emit('channel:leave', { channelId });
+    const channelIdNum = Number(channelId);
+    if (isNaN(channelIdNum)) {
+      console.error('❌ Attempted to leave channel with invalid ID:', channelId);
+      return;
+    }
+    console.log('✅ Leaving channel:', channelId);
+    this.socket?.emit('channel:leave', { channelId: channelIdNum });
   }
 
   createChannel(name: string, isPrivate: boolean): void {
@@ -197,7 +189,9 @@ class WebSocketService {
   }
 
   updateStatus(status: 'online' | 'DND' | 'offline'): void {
-    this.socket?.emit('user:status-update', { status });
+    // Backend expects lowercase 'dnd', not 'DND'
+    const backendStatus = status === 'DND' ? 'dnd' : status;
+    this.socket?.emit('user:status-update', { status: backendStatus });
   }
 
   listChannelMembers(channelId: string): void {
@@ -223,6 +217,10 @@ class WebSocketService {
 
   rejectInvite(inviteId: number): void {
     this.socket?.emit('channel:reject-invite', { inviteId });
+  }
+
+  onMessageSilent(callback: (data: MessageData) => void) {
+    this.socket?.on('message:new:silent', callback);
   }
 }
 

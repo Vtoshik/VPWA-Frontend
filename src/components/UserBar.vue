@@ -1,40 +1,75 @@
 <template>
-  <q-item clickable class="user-bar">
-    <q-item-section avatar class="user-avatar-section">
+  <q-item class="user-bar">
+    <!-- AVATAR -->
+    <q-item-section
+      avatar
+      class="user-avatar-section"
+      clickable
+      @click.stop="menu = true"
+    >
+
       <q-avatar size="40px" rounded class="user-avatar">
         <img src="https://cdn.quasar.dev/img/avatar.png" />
       </q-avatar>
     </q-item-section>
 
-    <q-item-section class="user-info">
+    <!-- USER INFO -->
+    <q-item-section
+      class="user-info"
+      clickable
+      @click.stop="menu = true"
+    >
+
       <div class="user-name">{{ currentUser?.nickName }}</div>
-      <div class="user-status" :class="getStatusClass(currentUser?.status)">
-        <q-icon :name="getStatusIcon(currentUser?.status)" size="xs" class="status-icon" />
+      <div
+        class="user-status"
+        :class="getStatusClass(currentUser?.status)"
+      >
+        <q-icon
+          :name="getStatusIcon(currentUser?.status)"
+          size="xs"
+          class="status-icon"
+        />
         {{ currentUser?.status || 'offline' }}
       </div>
     </q-item-section>
 
+    <!-- SETTINGS BUTTON (ONLY SETTINGS) -->
     <q-item-section side class="user-settings-section">
-      <q-btn flat dense round icon="settings" size="sm" @click="menu = true" class="settings-icon" />
+      <!-- SETTINGS -->
+      <q-btn
+        flat
+        dense
+        round
+        icon="settings"
+        @click.stop="goToSettings"
+      />
+
     </q-item-section>
 
-    <!-- Menu -->
-    <q-menu v-model="menu">
-      <q-list>
-        <!-- Status Selection -->
+    <!-- ACCOUNT MENU -->
+    <q-menu
+      v-model="menu"
+      anchor="top left"
+      self="bottom left"
+    >
+      <q-list style="min-width: 200px">
         <q-item-label header>Set Status</q-item-label>
+
         <q-item clickable v-close-popup @click="changeStatus('online')">
           <q-item-section avatar>
             <q-icon name="circle" color="positive" size="xs" />
           </q-item-section>
           <q-item-section>Online</q-item-section>
         </q-item>
+
         <q-item clickable v-close-popup @click="changeStatus('DND')">
           <q-item-section avatar>
             <q-icon name="do_not_disturb_on" color="negative" size="xs" />
           </q-item-section>
           <q-item-section>Do Not Disturb</q-item-section>
         </q-item>
+
         <q-item clickable v-close-popup @click="changeStatus('offline')">
           <q-item-section avatar>
             <q-icon name="circle" color="grey" size="xs" />
@@ -44,12 +79,10 @@
 
         <q-separator />
 
-        <!-- Name Changes -->
         <q-item clickable v-close-popup @click="openRenameDialog = true">
           <q-item-section>Change nickname</q-item-section>
         </q-item>
 
-        <!-- Logout -->
         <q-item clickable v-close-popup @click="logoutUser">
           <q-item-section>Logout</q-item-section>
         </q-item>
@@ -64,7 +97,12 @@
         </q-card-section>
 
         <q-card-section>
-          <q-input v-model="newNickName" label="Nickname" filled dense />
+          <q-input
+            v-model="newNickName"
+            label="Nickname"
+            filled
+            dense
+          />
         </q-card-section>
 
         <q-card-actions align="right">
@@ -77,11 +115,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onBeforeUnmount } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Member } from 'src/components/models';
+import type { Member } from 'src/services/models';
 import { Notify } from 'quasar';
 import { logout } from 'src/utils/auth';
+import { apiService } from 'src/services/api';
+import { wsService } from 'src/services/websocket';
 
 const router = useRouter();
 const menu = ref(false);
@@ -89,12 +129,33 @@ const openRenameDialog = ref(false);
 const currentUser = ref<Member | null>(null);
 const newNickName = ref('');
 
+function handleWebSocketConnected() {
+  console.log('WebSocket connected event received in UserBar');
+  Notify.create({
+    type: 'positive',
+    message: 'Connected - you are now online',
+    position: 'top',
+    timeout: 2000,
+  });
+}
+
 onMounted(() => {
   const stored = localStorage.getItem('currentUser');
   if (stored) {
     currentUser.value = JSON.parse(stored);
   }
+
+  // Listen for WebSocket connection events
+  window.addEventListener('websocket:connected', handleWebSocketConnected);
 });
+
+onBeforeUnmount(() => {
+  window.removeEventListener('websocket:connected', handleWebSocketConnected);
+});
+
+function goToSettings() {
+  void router.push('/settings');
+}
 
 function getStatusIcon(status?: 'online' | 'DND' | 'offline'): string {
   switch (status) {
@@ -120,111 +181,56 @@ function getStatusClass(status?: 'online' | 'DND' | 'offline'): string {
   }
 }
 
-function changeStatus(newStatus: 'online' | 'DND' | 'offline') {
+async function changeStatus(newStatus: 'online' | 'DND' | 'offline') {
   if (!currentUser.value) return;
 
-  const previousStatus = currentUser.value.status;
-  currentUser.value.status = newStatus;
-  localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
-  const membersData = localStorage.getItem('mock-members');
+  try {
+    await apiService.updateUserStatus(newStatus);
 
-  if (membersData && currentUser.value) {
-    const members: Member[] = JSON.parse(membersData);
-    const memberIndex = members.findIndex((m) => m.id === currentUser.value?.id);
-    if (memberIndex !== -1 && members[memberIndex]) {
-      members[memberIndex].status = newStatus;
-      localStorage.setItem('mock-members', JSON.stringify(members));
-    }
-  }
+    currentUser.value.status = newStatus;
+    localStorage.setItem('currentUser', JSON.stringify(currentUser.value));
 
-  let message = '';
-  let color = '';
-
-  switch (newStatus) {
-    case 'online':
-      message = 'Status changed to Online';
-      color = 'positive';
-      if (previousStatus === 'offline') {
-        simulateReceivingMessages();
-      }
-      break;
-    case 'DND':
-      message = 'Do Not Disturb - Notifications muted';
-      color = 'warning';
-      break;
-    case 'offline':
-      message = "Status changed to Offline - You won't receive messages";
-      color = 'grey';
-      break;
-  }
-
-  Notify.create({
-    type: color === 'positive' ? 'positive' : color === 'warning' ? 'warning' : 'info',
-    message,
-    position: 'top',
-  });
-}
-
-function simulateReceivingMessages() {
-  setTimeout(() => {
-    Notify.create({
-      type: 'info',
-      message: 'Synchronizing channels...',
-      position: 'top',
-      timeout: 1500,
-    });
-
-    setTimeout(() => {
-      addSimulatedMessages();
+    // Handle WebSocket connection based on status
+    if (newStatus === 'offline') {
+      // Disconnect WebSocket when going offline
+      console.log('Status changed to offline - disconnecting WebSocket');
+      wsService.disconnect();
 
       Notify.create({
-        type: 'positive',
-        message: 'Channels synchronized! New messages received.',
+        type: 'info',
+        message: 'You are now offline',
         position: 'top',
         timeout: 2000,
       });
+    } else {
+      // Connect WebSocket if not connected when going online/DND
+      if (!wsService.isConnected()) {
+        console.log(`Status changed to ${newStatus} - connecting WebSocket`);
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          wsService.connect(token);
+          // Success notification will come from the websocket:connected event listener
+        }
+      } else {
+        // Just update status on server if already connected
+        wsService.updateStatus(newStatus);
 
-      window.location.reload();
-    }, 1000);
-  }, 500);
-}
-
-function addSimulatedMessages() {
-  const messageFiles = [
-    '/src/assets/test-data/mock-messages.json',
-    '/src/assets/test-data/mock-messages-channel2.json',
-    '/src/assets/test-data/mock-messages-channel3.json',
-  ];
-
-  messageFiles.forEach((file) => {
-    const storedMessages = localStorage.getItem(file);
-    if (storedMessages) {
-      try {
-        const messages = JSON.parse(storedMessages);
-
-        const simulatedMessages = [
-          {
-            name: 'System',
-            text: ['Welcome back! You have new messages.'],
-            stamp: new Date().toLocaleTimeString(),
-            sent: false,
-            isCommand: true,
-          },
-          {
-            name: 'TestUser',
-            text: ['Hey! Where were you? We missed you!'],
-            stamp: new Date().toLocaleTimeString(),
-            sent: false,
-          },
-        ];
-
-        messages.push(...simulatedMessages);
-        localStorage.setItem(file, JSON.stringify(messages));
-      } catch (error) {
-        console.error(`Error adding simulated messages to ${file}:`, error);
+        Notify.create({
+          type: 'positive',
+          message: `Status: ${newStatus}`,
+          position: 'top',
+          timeout: 2000,
+        });
       }
     }
-  });
+  } catch (error) {
+    console.log('Failed to change status:', error);
+    Notify.create({
+      type: 'negative',
+      message: 'Failed to change status',
+      position: 'top',
+    });
+  }
 }
 
 function saveNewNick() {
@@ -307,7 +313,17 @@ async function logoutUser() {
   margin-left: 12px;
   color: white;
   min-width: 0;
+  width: 100%;
   overflow: hidden;
+  cursor: pointer;
+}
+
+.user-info :deep(.q-item__section) {
+  width: 100%;
+}
+
+.user-info-content {
+  width: 100%;
 }
 
 .user-name {

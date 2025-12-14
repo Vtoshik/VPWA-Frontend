@@ -1,6 +1,5 @@
 <template>
   <q-layout view="lHh Lpr lFf" style="height: 100vh">
-
     <!-- LEFT SIDEBAR -->
     <q-drawer
       v-model="leftDrawerOpen"
@@ -13,7 +12,6 @@
       <div class="drawer-inner bg-secondary">
         <div class="drawer-header-section">
           <div class="drawer-header-wrapper">
-
             <!-- TITLE -->
             <div class="drawer-header">Channels</div>
 
@@ -28,7 +26,7 @@
               @click="leftDrawerOpen = false"
               aria-label="Hide sidebar"
             >
-              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0,8]">
+              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
                 Hide sidebar
               </q-tooltip>
             </q-btn>
@@ -44,7 +42,7 @@
               @click="showCreateChannelDialog = true"
               aria-label="Create channel"
             >
-              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0,8]">
+              <q-tooltip anchor="top middle" self="bottom middle" :offset="[0, 8]">
                 Create channel
               </q-tooltip>
             </q-btn>
@@ -78,7 +76,6 @@
       </div>
     </q-drawer>
 
-
     <!-- FLOATING OPEN-BUTTON -->
     <q-btn
       v-if="!leftDrawerOpen"
@@ -90,17 +87,14 @@
       @click="leftDrawerOpen = true"
     />
 
-
     <!-- MAIN PAGE CONTENT -->
     <q-page-container class="full-height">
       <router-view />
     </q-page-container>
 
-
     <!-- CREATE CHANNEL DIALOG -->
     <q-dialog v-model="showCreateChannelDialog">
       <q-card class="create-channel-card">
-
         <q-card-section class="dialog-header">
           <div class="text-h6">Create Channel</div>
         </q-card-section>
@@ -124,8 +118,9 @@
           />
 
           <div class="channel-type-hint">
-            {{ newChannelIsPrivate ? 'Only invited members can join' :
-             'Anyone can join this channel' }}
+            {{
+              newChannelIsPrivate ? 'Only invited members can join' : 'Anyone can join this channel'
+            }}
           </div>
         </q-card-section>
 
@@ -140,24 +135,30 @@
             :disable="!newChannelName.trim()"
           />
         </q-card-actions>
-
       </q-card>
     </q-dialog>
   </q-layout>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue';
 import { Notify } from 'quasar';
 import UserBar from 'src/components/UserBar.vue';
 import { useRouter } from 'vue-router';
 import ChannelComponent from 'src/components/ChannelComponent.vue';
-import type { Channel } from 'src/components/models.ts';
-import { useCurrentUser } from 'src/utils/useCurrentUser';
-import { useChannels } from 'src/utils/useChannels';
-
+import type { Channel, ApiError } from 'src/services/models';
+import { useCurrentUser } from 'src/utils/CurrentUser';
+import { useChannels } from 'src/utils/Channels';
+import { useGlobalNotifications } from 'src/utils/GlobalNotifications';
 const leftDrawerOpen = ref(false);
-const { channels, invitations, createChannel: createNewChannel, loadChannels } = useChannels();
+const {
+  channels,
+  invitations,
+  createChannel: createNewChannel,
+  loadChannels,
+  loadInvitations,
+} = useChannels();
+const { setupGlobalNotifications } = useGlobalNotifications();
 const router = useRouter();
 const selectedChannel = ref<Channel | null>(null);
 
@@ -173,7 +174,7 @@ const MIN_DRAWER_WIDTH = 200;
 const MAX_DRAWER_WIDTH = 400;
 
 // Use reactive user state
-const { currentUser, userChannels, refreshUser, acceptChannelInvitation } = useCurrentUser();
+const { currentUser, userChannels, refreshUser } = useCurrentUser();
 
 const availableChannels = computed(() => {
   if (!currentUser.value) return [];
@@ -194,7 +195,10 @@ const availableChannels = computed(() => {
     (channel) => userChannelIds.includes(channel.id) || invitedChannelIds.includes(channel.id),
   );
 
-  console.log('Filtered channels:', allChannels.map((ch) => ({ id: ch.id, name: ch.name })));
+  console.log(
+    'Filtered channels:',
+    allChannels.map((ch) => ({ id: ch.id, name: ch.name })),
+  );
 
   // Sort: invited channels first, then regular channels
   return allChannels.sort((a, b) => {
@@ -212,9 +216,17 @@ watch(
   () => router.currentRoute.value.params.id,
   () => {
     // Reload channels when navigating to a different channel
-    loadChannels();
+    void loadChannels();
   },
 );
+
+// Handle WebSocket reconnection
+async function handleWebSocketReconnect() {
+  console.log('WebSocket reconnected - reloading channels and invitations');
+  setupGlobalNotifications();
+  await loadChannels();
+  await loadInvitations();
+}
 
 onMounted(() => {
   try {
@@ -226,6 +238,9 @@ onMounted(() => {
       return;
     }
 
+    // Listen for WebSocket reconnection to reload data and setup notifications
+    window.addEventListener('websocket:connected', () => void handleWebSocketReconnect());
+
     // Load drawer width from localStorage
     const savedWidth = localStorage.getItem('drawerWidth');
     if (savedWidth) {
@@ -233,7 +248,7 @@ onMounted(() => {
     }
 
     // Load channels from localStorage or fallback to mock data
-    loadChannels();
+    void loadChannels();
     const currentChannelId = router.currentRoute.value.params.id as string;
 
     if (currentChannelId) {
@@ -248,7 +263,6 @@ onMounted(() => {
       selectedChannel.value = availableChannels.value[0] as Channel;
       void router.push({
         path: `/channel/${selectedChannel.value.id}`,
-        query: { file: selectedChannel.value.messageFile },
       });
     } else {
       console.warn('No channels available for current user');
@@ -259,7 +273,12 @@ onMounted(() => {
   }
 });
 
-async function handleChannelSelected(channel: Channel) {
+onBeforeUnmount(() => {
+  // Remove WebSocket reconnection listener
+  window.removeEventListener('websocket:connected', () => void handleWebSocketReconnect());
+});
+
+function handleChannelSelected(channel: Channel) {
   selectedChannel.value = channel;
 
   // Check if this is an invited channel
@@ -319,7 +338,7 @@ async function handleCreateChannel() {
       path: `/channel/${newChannel.id}`,
     });
   } catch (err) {
-    const error = err as { response?: { data?: { message?: string } } };
+    const error = err as ApiError;
     Notify.create({
       type: 'negative',
       message: error.response?.data?.message || 'An error occurred while creating the channel',
@@ -604,14 +623,16 @@ function stopResize() {
   opacity: 0.55;
   backdrop-filter: blur(4px);
   background: rgba(0, 0, 0, 0.35);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  transition: opacity 0.2s ease, background 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  transition:
+    opacity 0.2s ease,
+    background 0.2s ease;
 }
 
 .open-drawer-btn:hover {
   opacity: 0.95;
   background: rgba(0, 0, 0, 0.55);
-  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
 .q-splitter__separator {
@@ -621,7 +642,6 @@ function stopResize() {
 .q-splitter--dark .q-splitter__separator {
   background: transparent !important;
 }
-
 
 /* Hide button inside drawer */
 .hide-drawer-btn {
@@ -634,5 +654,4 @@ function stopResize() {
   color: #ffffff;
   background: rgba(79, 84, 92, 0.32);
 }
-
 </style>
