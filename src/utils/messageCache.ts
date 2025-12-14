@@ -18,7 +18,7 @@ export function cacheChannelMessages(channelId: string, messages: Message[]): vo
     };
 
     localStorage.setItem(`${CACHE_PREFIX}${channelId}`, JSON.stringify(cacheData));
-    console.log(`Cached ${messagesToCache.length} messages for channel ${channelId}`);
+    //console.log(`Cached ${messagesToCache.length} messages for channel ${channelId}`);
   } catch (error) {
     console.error('Failed to cache messages:', error);
   }
@@ -41,7 +41,7 @@ export function loadCachedMessages(channelId: string): Message[] | null {
       return null;
     }
 
-    console.log(`Loaded ${cacheData.messages.length} cached messages for channel ${channelId}`);
+    //console.log(`Loaded ${cacheData.messages.length} cached messages for channel ${channelId}`);
     return cacheData.messages;
   } catch (error) {
     console.error('Failed to load cached messages:', error);
@@ -52,7 +52,7 @@ export function loadCachedMessages(channelId: string): Message[] | null {
 export function clearChannelCache(channelId: string): void {
   try {
     localStorage.removeItem(`${CACHE_PREFIX}${channelId}`);
-    console.log(`Cleared cache for channel ${channelId}`);
+    //console.log(`Cleared cache for channel ${channelId}`);
   } catch (error) {
     console.error('Failed to clear channel cache:', error);
   }
@@ -67,7 +67,7 @@ export function clearAllMessageCaches(): void {
       localStorage.removeItem(key);
     });
 
-    console.log(`Cleared ${cacheKeys.length} channel caches`);
+    //console.log(`Cleared ${cacheKeys.length} channel caches`);
   } catch (error) {
     console.error('Failed to clear all caches:', error);
   }

@@ -122,9 +122,7 @@ class ApiService {
   }
 
   async createChannel(data: CreateChannelRequest): Promise<{ channel: ChannelData }> {
-    console.log('🌐 API call to /api/channels with data:', data);
     const response = await this.axiosInstance.post<{ channel: ChannelData }>('/api/channels', data);
-    console.log('🌐 API response from /api/channels:', response.data);
     return response.data;
   }
 

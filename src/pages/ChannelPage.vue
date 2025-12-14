@@ -3,12 +3,7 @@
     <!-- Channel Header -->
     <div class="channel-header">
       <div class="channel-title">
-        <q-icon
-          v-if="selectedChannel?.isPrivate"
-          name="lock"
-          size="18px"
-          class="channel-lock"
-        />
+        <q-icon v-if="selectedChannel?.isPrivate" name="lock" size="18px" class="channel-lock" />
         <span v-else class="channel-hash">#</span>
 
         {{ channelName }}
@@ -24,7 +19,6 @@
         class="header-btn"
       />
     </div>
-
 
     <!-- Offline Mode Banner -->
     <transition name="slide-down">
@@ -56,7 +50,9 @@
         <div v-if="typingUsers.length > 0" class="typing-indicator-container">
           <q-icon name="edit" color="primary" size="16px" class="typing-icon" />
           <span class="typing-text">
-            <strong class="typing-nickname-link" @click="showTypingPreview">{{ typingUsersText }}</strong>
+            <strong class="typing-nickname-link" @click="showTypingPreview">{{
+              typingUsersText
+            }}</strong>
             {{ typingUsers.length === 1 ? 'is' : 'are' }} typing...
           </span>
         </div>
@@ -109,7 +105,7 @@ import CommandLine from 'src/components/CommandLine.vue';
 import MembersList from 'src/components/MembersList.vue';
 import type { Member, Command, TypingData } from 'src/services/models';
 import { getCurrentUser } from 'src/utils/auth';
-import { useChannels } from 'src/utils/Channels';
+import { useChannels } from 'src/utils/channels';
 import { apiService } from 'src/services/api';
 import { wsService } from 'src/services/websocket';
 import { executeCommand } from 'src/utils/commands';
@@ -223,20 +219,18 @@ function initializeWebSocketFeatures() {
   const channelIdNum = Number(channelId.value);
 
   if (!isNaN(channelIdNum) && wsService.isConnected()) {
-    console.log('Initializing WebSocket features for channel:', channelId.value);
+    //console.log('Initializing WebSocket features for channel:', channelId.value);
 
     // Join channel room
     wsService.joinChannel(channelId.value);
 
     // Setup status change listener
     wsService.onUserStatusChanged((data) => {
-      console.log('User status changed:', data);
+      //console.log('User status changed:', data);
 
       const channelMembers = members.value[channelId.value];
       if (channelMembers) {
-        const member = channelMembers.find(
-          (m) => m.id === String(data.userId)
-        );
+        const member = channelMembers.find((m) => m.id === String(data.userId));
         if (member) {
           member.status = data.status;
         }
@@ -248,17 +242,27 @@ function initializeWebSocketFeatures() {
     setupTypingListeners();
     setupMessageListeners();
 
-    console.log('WebSocket features initialized');
+    //console.log('WebSocket features initialized');
   }
 }
 
 // Listen for WebSocket reconnection
 async function handleWebSocketReconnect() {
-  console.log('WebSocket reconnected - reinitializing features and reloading data');
+  //console.log('WebSocket reconnected - reinitializing features and reloading data');
   isOfflineMode.value = false;
+
+  // Only reload if we're on a channel page
+  if (!channelId.value) {
+    console.log('Not on a channel page, skipping reload');
+    return;
+  }
 
   try {
     const channelIdNum = Number(channelId.value);
+    if (isNaN(channelIdNum)) {
+      console.error('Invalid channelId on reconnect:', channelId.value);
+      return;
+    }
 
     // Reload members
     const response = await apiService.getChannelMembers(channelIdNum);
@@ -357,7 +361,7 @@ watch(
   () => currentUser.value?.status,
   (newStatus, oldStatus) => {
     if (oldStatus === 'offline' && newStatus !== 'offline') {
-      console.log('User status changed from offline to', newStatus);
+      //console.log('User status changed from offline to', newStatus);
       // WebSocket reconnection will be handled by the global event listener
       // Just reload channels list
       void loadChannels();
@@ -403,17 +407,34 @@ onBeforeUnmount(() => {
   // Leave the channel room when component unmounts (only if WebSocket is connected)
   const channelIdNum = Number(channelId.value);
   if (!isNaN(channelIdNum) && wsService.isConnected()) {
-    console.log('Leaving WebSocket channel room:', channelId.value);
+    //console.log('Leaving WebSocket channel room:', channelId.value);
     wsService.leaveChannel(channelId.value);
   }
 });
 
 function setupMembersListeners() {
+  //console.log('setupMembersListeners() called');
+
   wsService.onUserJoinedChannel((data) => {
-    if (data.channelId !== channelId.value) return;
+    // console.log(
+    //   'user:joined-channel event, channelId.value:',
+    //   channelId.value,
+    //   'event channelId:',
+    //   data.channelId,
+    // );
+
+    if (!channelId.value || String(data.channelId) !== channelId.value) {
+      //console.log('Skipping - channelId mismatch or undefined');
+      return;
+    }
 
     const channelIdNum = Number(channelId.value);
+    if (isNaN(channelIdNum)) {
+      //console.error('Invalid channelId:', channelId.value);
+      return;
+    }
 
+    //console.log('Loading members for channel:', channelIdNum);
     void apiService.getChannelMembers(channelIdNum).then((response) => {
       members.value[channelId.value] = response.members.map(
         (m): Member => ({
@@ -431,14 +452,18 @@ function setupMembersListeners() {
   });
 
   wsService.onUserLeftChannel((data) => {
-    if (data.channelId === channelId.value) {
-      const channelMembers = members.value[channelId.value];
-      if (!channelMembers) return;
+    if (!channelId.value || String(data.channelId) !== channelId.value) {
+      return;
+    }
 
-      const index = channelMembers.findIndex((m) => m.id === String(data.userId));
-      if (index !== -1) {
-        channelMembers.splice(index, 1);
-      }
+    const channelMembers = members.value[channelId.value];
+    if (!channelMembers) {
+      return;
+    }
+
+    const index = channelMembers.findIndex((m) => m.id === String(data.userId));
+    if (index !== -1) {
+      channelMembers.splice(index, 1);
     }
   });
 }
@@ -503,13 +528,13 @@ watch(channelId, async (newChannelId, oldChannelId) => {
 
     // Leave old channel room
     if (oldChannelId && !isNaN(Number(oldChannelId))) {
-      console.log('Leaving old channel room:', oldChannelId);
+      //console.log('Leaving old channel room:', oldChannelId);
       wsService.leaveChannel(oldChannelId);
     }
 
     // Join new channel room
     if (newChannelId && !isNaN(Number(newChannelId))) {
-      console.log('Joining new channel room:', newChannelId);
+      //console.log('Joining new channel room:', newChannelId);
       wsService.joinChannel(newChannelId);
     }
 
@@ -517,7 +542,7 @@ watch(channelId, async (newChannelId, oldChannelId) => {
     await loadAllMessages();
     scrollToBottom(true);
   } else {
-    console.log('User is offline - loading cached messages');
+    //console.log('User is offline - loading cached messages');
     isOfflineMode.value = true;
 
     // Try to load cached messages for the new channel
@@ -903,5 +928,4 @@ watch(
 .channel-hash {
   color: #80848e;
 }
-
 </style>

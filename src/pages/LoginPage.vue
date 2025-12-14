@@ -50,7 +50,7 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { Notify, useQuasar, Loading } from 'quasar';
 import { login } from 'src/utils/auth';
-import { useChannels } from 'src/utils/Channels';
+import { useChannels } from 'src/utils/channels';
 
 const email = ref('');
 const password = ref('');
@@ -121,7 +121,7 @@ function showMissedNotifications() {
   const isAppVisible = !document.hidden && $q.appVisible;
 
   if (isAppVisible) {
-    console.log('Skipping all notifications - app is visible');
+    //console.log('Skipping all notifications - app is visible');
     return;
   }
 }

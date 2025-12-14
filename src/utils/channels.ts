@@ -6,11 +6,11 @@ import { useCurrentUser } from './CurrentUser';
 import type { ApiError, ChannelData } from '../services/models';
 
 function convertToChannel(channelData: ChannelData): Channel {
-  console.log('Converting channel:', {
-    name: channelData.name,
-    isPrivate: channelData.isPrivate,
-    type: typeof channelData.isPrivate
-  });
+  // console.log('Converting channel:', {
+  //   name: channelData.name,
+  //   isPrivate: channelData.isPrivate,
+  //   type: typeof channelData.isPrivate
+  // });
 
   return {
     id: String(channelData.id),
@@ -46,8 +46,11 @@ export function useChannels() {
     error.value = null;
 
     try {
+      //console.log('Loading channels from API...');
       const response = await apiService.getChannels();
+      //console.log('Loaded channels:', response.channels.length, 'channels');
       channels.value = response.channels.map(convertToChannel);
+      //console.log('Channels in state:', channels.value.map((ch) => ch.name));
     } catch (err) {
       const apiError = err as ApiError;
       error.value = apiError.response?.data?.message || 'Failed to load channels';
@@ -59,10 +62,10 @@ export function useChannels() {
 
   async function loadInvitations(): Promise<void> {
     try {
-      console.log('Loading invitations from API...');
+      //console.log('Loading invitations from API...');
       const response = await apiService.getInvitations();
       invitations.value = response.invites;
-      console.log('Loaded invitations:', invitations.value);
+      //console.log('Loaded invitations:', invitations.value);
 
       // Add invited channels to channels list if they don't exist
       for (const invite of invitations.value) {
@@ -79,7 +82,7 @@ export function useChannels() {
             updatedAt: '',
           };
           channels.value.push(invitedChannel);
-          console.log('Added invited channel to list:', invitedChannel);
+          //console.log('Added invited channel to list:', invitedChannel);
         }
       }
     } catch (err) {
@@ -149,15 +152,15 @@ export function useChannels() {
   }
 
   async function createChannel(name: string, isPrivate: boolean = false): Promise<Channel | null> {
-    console.log('📤 createChannel called with:', {
-      name,
-      isPrivate,
-      type: typeof isPrivate,
-    });
+    // console.log('createChannel called with:', {
+    //   name,
+    //   isPrivate,
+    //   type: typeof isPrivate,
+    // });
 
     try {
       const response = await apiService.createChannel({ name, isPrivate });
-      console.log('📥 Backend response for createChannel:', response.channel);
+      // console.log('Backend response for createChannel:', response.channel);
       const newChannel = convertToChannel(response.channel);
 
       // Add to local channels list
@@ -222,6 +225,8 @@ export function useChannels() {
   }
 
   function setupSocketListeners(): void {
+    //console.log('Setting up channel socket listeners...');
+
     wsService.onChannelCreated((channel) => {
       const apiChannelData: ChannelData = {
         id: Number(channel.id),
@@ -249,7 +254,7 @@ export function useChannels() {
     });
 
     wsService.onChannelKick((data) => {
-      console.log('Kicked from channel:', data);
+      //console.log('Kicked from channel:', data);
       const channelId = String(data.channelId);
 
       // Remove channel from local list
@@ -271,7 +276,7 @@ export function useChannels() {
     });
 
     wsService.onChannelRevoke((data) => {
-      console.log('Revoked from channel:', data);
+      //console.log('Revoked from channel:', data);
       const channelId = String(data.channelId);
 
       // Remove channel from local list
@@ -290,6 +295,20 @@ export function useChannels() {
           detail: { channelId, channelName: data.channelName, revokedBy: data.revokedBy },
         }),
       );
+    });
+
+    wsService.onChannelUnban((data) => {
+      //console.log('Unbanned from channel:', data);
+
+      // Reload channels to get the unbanned channel
+      void loadChannels();
+
+      // Add channel to current user's channels in localStorage
+      const { addChannelToUser } = useCurrentUser();
+      addChannelToUser(String(data.channelId));
+
+      // Show notification
+      //console.log(`Unbanned from #${data.channelName} by ${data.unbannedBy}`);
     });
   }
 
