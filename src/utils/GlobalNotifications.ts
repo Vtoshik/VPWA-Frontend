@@ -1,6 +1,6 @@
 import { wsService } from 'src/services/websocket';
 import { getCurrentUser } from 'src/utils/auth';
-import { useChannels } from 'src/utils/Channels';
+import { useChannels } from 'src/utils/channels';
 import { useRouter } from 'vue-router';
 import type { MessageData } from 'src/services/models';
 
@@ -33,7 +33,7 @@ export function useGlobalNotifications() {
   }
 
   function globalNotificationHandler(data: MessageData) {
-    console.log('📩 Global message received:', data);
+    //console.log('Global message received:', data);
 
     const currentUser = getCurrentUser();
     // Use document.visibilityState instead of $q.appVisible (which doesn't work outside components)
@@ -47,26 +47,26 @@ export function useGlobalNotifications() {
       if (shouldNotify) {
         showBrowserNotification(data);
       } else {
-        console.log('Notification blocked by user settings (mention-only mode)');
+        //console.log('Notification blocked by user settings (mention-only mode)');
       }
     } else {
-      console.log('Notification not shown. Reasons:', {
-        isAppVisible,
-        isFromOtherUser,
-        hasUser: !!currentUser,
-      });
+      // console.log('Notification not shown. Reasons:', {
+      //   isAppVisible,
+      //   isFromOtherUser,
+      //   hasUser: !!currentUser,
+      // });
     }
   }
 
   function setupGlobalNotifications() {
     if (isSetup) {
-      console.log('Global notifications already set up, skipping');
+      //console.log('Global notifications already set up, skipping');
       return;
     }
 
-    console.log('Setting up global notifications listener');
-    console.log('WebSocket connected:', wsService.isConnected());
-    console.log('Socket object exists:', !!wsService.socket);
+    // console.log('Setting up global notifications listener');
+    // console.log('WebSocket connected:', wsService.isConnected());
+    // console.log('Socket object exists:', !!wsService.socket);
 
     // Remove any existing listener first to prevent duplicates
     wsService.socket?.off('message:new', globalNotificationHandler);
@@ -74,12 +74,12 @@ export function useGlobalNotifications() {
     // Add the listener
     wsService.onMessage(globalNotificationHandler);
 
-    console.log('Global notification handler registered');
+    //console.log('Global notification handler registered');
     isSetup = true;
   }
 
   function resetGlobalNotifications() {
-    console.log('Resetting global notifications');
+    //console.log('Resetting global notifications');
     isSetup = false;
   }
 

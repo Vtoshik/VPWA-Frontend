@@ -1,5 +1,5 @@
 import type { Command, Member } from 'src/services/models';
-import { useChannels } from 'src/utils/Channels';
+import { useChannels } from 'src/utils/channels';
 import type { Router } from 'vue-router';
 import { apiService } from 'src/services/api';
 import { Notify } from 'quasar';

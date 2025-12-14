@@ -1,35 +1,17 @@
 <template>
   <q-item class="user-bar">
     <!-- AVATAR -->
-    <q-item-section
-      avatar
-      class="user-avatar-section"
-      clickable
-      @click.stop="menu = true"
-    >
-
+    <q-item-section avatar class="user-avatar-section" clickable @click.stop="menu = true">
       <q-avatar size="40px" rounded class="user-avatar">
         <img src="https://cdn.quasar.dev/img/avatar.png" />
       </q-avatar>
     </q-item-section>
 
     <!-- USER INFO -->
-    <q-item-section
-      class="user-info"
-      clickable
-      @click.stop="menu = true"
-    >
-
+    <q-item-section class="user-info" clickable @click.stop="menu = true">
       <div class="user-name">{{ currentUser?.nickName }}</div>
-      <div
-        class="user-status"
-        :class="getStatusClass(currentUser?.status)"
-      >
-        <q-icon
-          :name="getStatusIcon(currentUser?.status)"
-          size="xs"
-          class="status-icon"
-        />
+      <div class="user-status" :class="getStatusClass(currentUser?.status)">
+        <q-icon :name="getStatusIcon(currentUser?.status)" size="xs" class="status-icon" />
         {{ currentUser?.status || 'offline' }}
       </div>
     </q-item-section>
@@ -37,22 +19,11 @@
     <!-- SETTINGS BUTTON (ONLY SETTINGS) -->
     <q-item-section side class="user-settings-section">
       <!-- SETTINGS -->
-      <q-btn
-        flat
-        dense
-        round
-        icon="settings"
-        @click.stop="goToSettings"
-      />
-
+      <q-btn flat dense round icon="settings" @click.stop="goToSettings" />
     </q-item-section>
 
     <!-- ACCOUNT MENU -->
-    <q-menu
-      v-model="menu"
-      anchor="top left"
-      self="bottom left"
-    >
+    <q-menu v-model="menu" anchor="top left" self="bottom left">
       <q-list style="min-width: 200px">
         <q-item-label header>Set Status</q-item-label>
 
@@ -97,12 +68,7 @@
         </q-card-section>
 
         <q-card-section>
-          <q-input
-            v-model="newNickName"
-            label="Nickname"
-            filled
-            dense
-          />
+          <q-input v-model="newNickName" label="Nickname" filled dense />
         </q-card-section>
 
         <q-card-actions align="right">
@@ -130,7 +96,7 @@ const currentUser = ref<Member | null>(null);
 const newNickName = ref('');
 
 function handleWebSocketConnected() {
-  console.log('WebSocket connected event received in UserBar');
+  //console.log('WebSocket connected event received in UserBar');
   Notify.create({
     type: 'positive',
     message: 'Connected - you are now online',

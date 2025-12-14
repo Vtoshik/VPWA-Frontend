@@ -73,7 +73,7 @@ export async function login(email: string, password: string): Promise<Member> {
 
   // Only connect WebSocket if user is not offline
   if (member.status !== 'offline') {
-    console.log(`User status is ${member.status} - connecting WebSocket`);
+    //console.log(`User status is ${member.status} - connecting WebSocket`);
     wsService.connect(response.token);
   } else {
     console.log('User status is offline - WebSocket will not connect');
@@ -123,12 +123,10 @@ export async function logout(): Promise<void> {
   localStorage.removeItem(CURRENT_USER_KEY);
   localStorage.removeItem('auth_token');
 
-  // Try to notify backend, but don't fail if it errors
   try {
     await apiService.logout();
   } catch {
-    // Ignore logout errors - we've already cleared local state
-    console.log('Backend logout skipped (already logged out locally)');
+    //console.log('Backend logout skipped (already logged out locally)');
   }
 }
 

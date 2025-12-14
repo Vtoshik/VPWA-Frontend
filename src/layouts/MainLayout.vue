@@ -148,7 +148,7 @@ import { useRouter } from 'vue-router';
 import ChannelComponent from 'src/components/ChannelComponent.vue';
 import type { Channel, ApiError } from 'src/services/models';
 import { useCurrentUser } from 'src/utils/CurrentUser';
-import { useChannels } from 'src/utils/Channels';
+import { useChannels } from 'src/utils/channels';
 import { useGlobalNotifications } from 'src/utils/GlobalNotifications';
 const leftDrawerOpen = ref(false);
 const {
@@ -184,21 +184,21 @@ const availableChannels = computed(() => {
   // Get invited channel IDs from API invitations
   const invitedChannelIds = invitations.value.map((inv) => String(inv.channelId));
 
-  console.log('Computing availableChannels:', {
-    userChannelIds,
-    invitedChannelIds,
-    allChannels: channels.value.map((ch) => ({ id: ch.id, name: ch.name })),
-  });
+  // console.log('Computing availableChannels:', {
+  //   userChannelIds,
+  //   invitedChannelIds,
+  //   allChannels: channels.value.map((ch) => ({ id: ch.id, name: ch.name })),
+  // });
 
   // Include user's channels and invited channels
   const allChannels = channels.value.filter(
     (channel) => userChannelIds.includes(channel.id) || invitedChannelIds.includes(channel.id),
   );
 
-  console.log(
-    'Filtered channels:',
-    allChannels.map((ch) => ({ id: ch.id, name: ch.name })),
-  );
+  // console.log(
+  //   'Filtered channels:',
+  //   allChannels.map((ch) => ({ id: ch.id, name: ch.name })),
+  // );
 
   // Sort: invited channels first, then regular channels
   return allChannels.sort((a, b) => {
@@ -265,7 +265,7 @@ onMounted(() => {
         path: `/channel/${selectedChannel.value.id}`,
       });
     } else {
-      console.warn('No channels available for current user');
+      //console.warn('No channels available for current user');
       void router.push('/');
     }
   } catch (error) {

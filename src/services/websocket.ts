@@ -34,9 +34,9 @@ class WebSocketService {
     if (!this.socket) return;
 
     // Log ALL incoming events for debugging
-    this.socket.onAny((eventName, ...args) => {
-      console.log('WebSocket event received:', eventName, args);
-    });
+    // this.socket.onAny((eventName, ...args) => {
+    //   console.log('WebSocket event received:', eventName, args);
+    // });
 
     this.socket.on('connect', () => {
       console.log('WebSocket connected successfully');
@@ -89,13 +89,25 @@ class WebSocketService {
   onChannelKick(
     callback: (data: { channelId: number; channelName: string; kickedBy: string }) => void,
   ): void {
-    this.socket?.on('channel:kick', callback);
+    this.socket?.on('channel:kick', (data) => {
+      //console.log('Received channel:kick event:', data);
+      callback(data);
+    });
   }
 
   onChannelRevoke(
     callback: (data: { channelId: number; channelName: string; revokedBy: string }) => void,
   ): void {
-    this.socket?.on('channel:revoke', callback);
+    this.socket?.on('channel:revoke', (data) => {
+      //console.log('Received channel:revoke event:', data);
+      callback(data);
+    });
+  }
+
+  onChannelUnban(
+    callback: (data: { channelId: number; channelName: string; unbannedBy: string }) => void,
+  ): void {
+    this.socket?.on('channel:unban', callback);
   }
 
   // Message events
@@ -124,31 +136,37 @@ class WebSocketService {
   }
 
   onUserJoinedChannel(callback: (data: { userId: string; channelId: string }) => void): void {
-    this.socket?.on('user:joined-channel', callback);
+    this.socket?.on('user:joined-channel', (data) => {
+      //console.log('Received user:joined-channel event:', data);
+      callback(data);
+    });
   }
 
   onUserLeftChannel(callback: (data: { userId: string; channelId: string }) => void): void {
-    this.socket?.on('user:left-channel', callback);
+    this.socket?.on('user:left-channel', (data) => {
+      //console.log('Received user:left-channel event:', data);
+      callback(data);
+    });
   }
 
   // Emit events
   joinChannel(channelId: string): void {
     const channelIdNum = Number(channelId);
     if (isNaN(channelIdNum)) {
-      console.error('❌ Attempted to join channel with invalid ID:', channelId);
+      console.error('Attempted to join channel with invalid ID:', channelId);
       return;
     }
-    console.log('✅ Joining channel:', channelId);
+    //console.log('Joining channel:', channelId);
     this.socket?.emit('channel:join', { channelId: channelIdNum });
   }
 
   leaveChannel(channelId: string): void {
     const channelIdNum = Number(channelId);
     if (isNaN(channelIdNum)) {
-      console.error('❌ Attempted to leave channel with invalid ID:', channelId);
+      console.error('Attempted to leave channel with invalid ID:', channelId);
       return;
     }
-    console.log('✅ Leaving channel:', channelId);
+    //console.log('Leaving channel:', channelId);
     this.socket?.emit('channel:leave', { channelId: channelIdNum });
   }
 
@@ -189,7 +207,6 @@ class WebSocketService {
   }
 
   updateStatus(status: 'online' | 'DND' | 'offline'): void {
-    // Backend expects lowercase 'dnd', not 'DND'
     const backendStatus = status === 'DND' ? 'dnd' : status;
     this.socket?.emit('user:status-update', { status: backendStatus });
   }

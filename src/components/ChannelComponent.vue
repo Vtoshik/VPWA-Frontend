@@ -62,12 +62,11 @@
 </template>
 
 <script setup lang="ts">
-import { defineEmits } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { Notify } from 'quasar';
 import type { Channel } from '../services/models';
 import { useCurrentUser } from 'src/utils/CurrentUser';
-import { useChannels } from 'src/utils/Channels';
+import { useChannels } from 'src/utils/channels';
 import type { ApiError } from '../services/models';
 
 const props = defineProps<{

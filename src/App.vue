@@ -4,7 +4,7 @@
 
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { useChannels } from './utils/Channels';
+import { useChannels } from './utils/channels';
 import { useGlobalNotifications } from './utils/GlobalNotifications';
 import { wsService } from 'src/services/websocket';
 import { getCurrentUser } from 'src/utils/auth';

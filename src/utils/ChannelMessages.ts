@@ -25,15 +25,15 @@ export function useChannelMessages(
   async function loadAllMessages() {
     const channelIdNum = Number(channelId.value);
     if (isNaN(channelIdNum)) {
-      console.log('Skipping message load - channelId is not a number:', channelId.value);
+      //console.log('Skipping message load - channelId is not a number:', channelId.value);
       messages.value = [];
       return;
     }
 
     try {
       const response = await apiService.getChannelMessages(channelIdNum, 1, MESSAGE_LIMIT);
-      console.log('Loaded messages from backend:', response.data.length, 'messages');
-      console.log('Pagination info:', response.meta);
+      //console.log('Loaded messages from backend:', response.data.length, 'messages');
+      //console.log('Pagination info:', response.meta);
 
       messages.value = response.data
         .map((msg) => ({
@@ -50,22 +50,22 @@ export function useChannelMessages(
         }))
         .reverse();
 
-      console.log('Converted messages:', messages.value.length);
+      //console.log('Converted messages:', messages.value.length);
 
       // Backend uses camelCase for pagination fields
       const currentPage = response.meta.currentPage;
       const lastPage = response.meta.lastPage;
 
-      console.log('Checking pagination:', {
-        currentPage: currentPage,
-        lastPage: lastPage,
-        comparison: currentPage < lastPage,
-      });
+      // console.log('Checking pagination:', {
+      //   currentPage: currentPage,
+      //   lastPage: lastPage,
+      //   comparison: currentPage < lastPage,
+      // });
 
       const hasMore = currentPage < lastPage;
       hasMoreMessages.value = hasMore;
       currentLoadedPage.value = currentPage;
-      console.log('Has more messages?', hasMore);
+      //console.log('Has more messages?', hasMore);
 
       // Cache messages after successful load
       cacheChannelMessages(channelId.value, messages.value);
@@ -78,14 +78,14 @@ export function useChannelMessages(
 
   async function loadOlderMessages() {
     if (isLoading.value || !hasMoreMessages.value) {
-      console.log('Skipping load:', {
-        isLoading: isLoading.value,
-        hasMore: hasMoreMessages.value,
-      });
+      // console.log('Skipping load:', {
+      //   isLoading: isLoading.value,
+      //   hasMore: hasMoreMessages.value,
+      // });
       return;
     }
 
-    console.log('⬆Loading older messages...');
+    //console.log('Loading older messages...');
     isLoading.value = true;
 
     try {
@@ -97,19 +97,19 @@ export function useChannelMessages(
 
       const nextPage = currentLoadedPage.value + 1;
 
-      console.log(
-        'Loading page:',
-        nextPage,
-        'Current loaded page:',
-        currentLoadedPage.value,
-        'Total messages:',
-        messages.value.length,
-      );
+      // console.log(
+      //   'Loading page:',
+      //   nextPage,
+      //   'Current loaded page:',
+      //   currentLoadedPage.value,
+      //   'Total messages:',
+      //   messages.value.length,
+      // );
 
       await new Promise((resolve) => setTimeout(resolve, 300));
 
       const response = await apiService.getChannelMessages(channelIdNum, nextPage, MESSAGE_LIMIT);
-      console.log('Loaded', response.data.length, 'older messages');
+      //console.log('Loaded', response.data.length, 'older messages');
 
       if (response.data.length > 0) {
         const olderMessages = response.data
@@ -128,16 +128,16 @@ export function useChannelMessages(
           .reverse();
 
         messages.value = [...olderMessages, ...messages.value];
-        console.log('Total messages now:', messages.value.length);
+        //console.log('Total messages now:', messages.value.length);
 
         const currentPage = response.meta.currentPage;
         const lastPage = response.meta.lastPage;
-        console.log('Has more?', currentPage < lastPage);
+        //console.log('Has more?', currentPage < lastPage);
 
         hasMoreMessages.value = currentPage < lastPage;
         currentLoadedPage.value = currentPage;
       } else {
-        console.log('No more messages to load');
+        //console.log('No more messages to load');
         hasMoreMessages.value = false;
       }
 
@@ -146,13 +146,13 @@ export function useChannelMessages(
         const newScrollHeight = scrollTarget.scrollHeight;
         const scrollDiff = newScrollHeight - oldScrollHeight;
         scrollAreaRef.value?.setScrollPosition('vertical', scrollDiff, 0);
-        console.log('Restored scroll position, diff:', scrollDiff);
+        //console.log('Restored scroll position, diff:', scrollDiff);
       }
     } catch (error) {
       console.error('Error loading older messages:', error);
     } finally {
       isLoading.value = false;
-      console.log('Loading complete');
+      //console.log('Loading complete');
     }
   }
 
@@ -168,9 +168,10 @@ export function useChannelMessages(
     }
 
     try {
-      console.log('Sending message to backend:', text, 'channelId:', channelIdNum);
-      const response = await apiService.sendMessage(channelIdNum, text);
-      console.log('Message sent successfully, response:', response);
+      //console.log('Sending message to backend:', text, 'channelId:', channelIdNum);
+      //const response =
+      await apiService.sendMessage(channelIdNum, text);
+      //console.log('Message sent successfully, response:', response);
 
       if (isUserAtBottom.value) {
         scrollToBottom();
@@ -205,7 +206,7 @@ export function useChannelMessages(
     isUserAtBottom.value = scrollBottom < 100;
 
     if (verticalPosition < 100 && !isLoading.value && hasMoreMessages.value) {
-      console.log('Near top, triggering load. Position:', verticalPosition);
+      //console.log('Near top, triggering load. Position:', verticalPosition);
       void loadOlderMessages();
     }
   }
@@ -279,7 +280,7 @@ export function useChannelMessages(
   function loadMessagesFromCache() {
     const cached = loadCachedMessages(channelId.value);
     if (cached && cached.length > 0) {
-      console.log(`Loading ${cached.length} messages from cache for channel ${channelId.value}`);
+      //console.log(`Loading ${cached.length} messages from cache for channel ${channelId.value}`);
       messages.value = cached;
       return true;
     }
