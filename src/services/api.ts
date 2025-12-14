@@ -1,4 +1,19 @@
 import axios, { type AxiosInstance, type AxiosResponse } from 'axios';
+import type {
+  RegisterData,
+  LoginData,
+  AuthResponse,
+  ChannelData,
+  UserResponse,
+  ChannelMember,
+  CreateChannelRequest,
+  InviteKickRequest,
+  InviteKickResponse,
+  MessageResponse,
+  InviteResponse,
+  UserUpdateResponse,
+  PaginationMeta,
+} from './models';
 
 export const API_CONFIG = {
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3333',
@@ -12,76 +27,6 @@ export const API_CONFIG = {
     },
   },
 };
-
-export interface RegisterData {
-  email: string;
-  password: string;
-  nickname: string;
-  firstname?: string;
-  lastname?: string;
-}
-
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
-export interface AuthResponse {
-  message: string;
-  user: {
-    id: number;
-    email: string;
-    nickname: string;
-    firstname: string | null;
-    lastname: string | null;
-    status: 'online' | 'DND' | 'offline';
-    notifyOnMentionOnly: boolean;
-  };
-  token: string;
-}
-
-export interface UserResponse {
-  user: {
-    id: number;
-    email: string;
-    nickname: string;
-    firstname: string | null;
-    lastname: string | null;
-    status: 'online' | 'DND' | 'offline';
-    notifyOnMentionOnly: boolean;
-  };
-}
-
-export interface ChannelData {
-  id: number;
-  name: string;
-  adminId: number;
-  isPrivate: boolean;
-  lastActivity: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UserStatusData {
-  userId: string;
-  status: 'online' | 'DND' | 'offline';
-}
-
-export interface ChannelMember {
-  userId: number;
-  nickname: string;
-  status: 'online' | 'DND' | 'offline';
-  joinedAt: string;
-}
-
-export interface CreateChannelRequest {
-  name: string;
-  isPrivate?: boolean;
-}
-
-export interface InviteKickRequest {
-  userId: number;
-}
 
 class ApiService {
   private axiosInstance: AxiosInstance;
@@ -177,7 +122,9 @@ class ApiService {
   }
 
   async createChannel(data: CreateChannelRequest): Promise<{ channel: ChannelData }> {
+    console.log('🌐 API call to /api/channels with data:', data);
     const response = await this.axiosInstance.post<{ channel: ChannelData }>('/api/channels', data);
+    console.log('🌐 API response from /api/channels:', response.data);
     return response.data;
   }
 
@@ -203,12 +150,12 @@ class ApiService {
     return response.data;
   }
 
-  async inviteToChannel(channelId: number, data: InviteKickRequest): Promise<any> {
+  async inviteToChannel(channelId: number, data: InviteKickRequest): Promise<InviteKickResponse> {
     const response = await this.axiosInstance.post(`/api/channels/${channelId}/invite`, data);
     return response.data;
   }
 
-  async kickFromChannel(channelId: number, data: InviteKickRequest): Promise<any> {
+  async kickFromChannel(channelId: number, data: InviteKickRequest): Promise<InviteKickResponse> {
     const response = await this.axiosInstance.post(`/api/channels/${channelId}/kick`, data);
     return response.data;
   }
@@ -233,7 +180,7 @@ class ApiService {
     page = 1,
     limit = 50,
   ): Promise<{
-    meta: { total: number; per_page: number; current_page: number; last_page: number };
+    meta: PaginationMeta;
     data: Array<{
       id: number;
       userId: number;
@@ -255,7 +202,7 @@ class ApiService {
     return response.data;
   }
 
-  async sendMessage(channelId: number, text: string): Promise<{ message: any }> {
+  async sendMessage(channelId: number, text: string): Promise<{ message: MessageResponse }> {
     const response = await this.axiosInstance.post('/api/messages', {
       channelId,
       text,
@@ -266,7 +213,7 @@ class ApiService {
   async inviteToChannelByNickname(
     channelId: number,
     nickname: string,
-  ): Promise<{ invite: any; message?: string }> {
+  ): Promise<{ invite: InviteResponse; message?: string }> {
     const response = await this.axiosInstance.post(`/api/channels/${channelId}/invite`, {
       nickname,
     });
@@ -315,6 +262,59 @@ class ApiService {
 
   async rejectInvitation(inviteId: number): Promise<{ message: string }> {
     const response = await this.axiosInstance.post(`/api/invites/${inviteId}/reject`);
+    return response.data;
+  }
+
+  async updateUserStatus(status: 'online' | 'DND' | 'offline'): Promise<UserUpdateResponse> {
+    // Backend expects lowercase 'dnd', not 'DND'
+    const backendStatus = status === 'DND' ? 'dnd' : status;
+    const response = await this.axiosInstance.put('/api/users/status', { status: backendStatus });
+    return response.data;
+  }
+
+  async updateUserSettings(notifyOnMentionOnly: boolean): Promise<UserUpdateResponse> {
+    const response = await this.axiosInstance.put('/api/users/settings', { notifyOnMentionOnly });
+    return response.data;
+  }
+
+  async getNotifications(
+    page = 1,
+    limit = 50,
+    unreadOnly = true,
+  ): Promise<{
+    data: Array<{
+      id: number;
+      type: 'mention' | 'message';
+      isRead: boolean;
+      createdAt: string;
+      message: {
+        id: number;
+        text: string;
+        sendAt: string;
+        user: { id: number; nickname: string };
+        channel: { id: number; name: string };
+      };
+    }>;
+    meta: PaginationMeta;
+  }> {
+    const response = await this.axiosInstance.get('/api/notifications', {
+      params: { page, limit, unreadOnly },
+    });
+    return response.data;
+  }
+
+  async markNotificationAsRead(id: number): Promise<{ message: string }> {
+    const response = await this.axiosInstance.put(`/api/notifications/${id}/read`);
+    return response.data;
+  }
+
+  async markAllNotificationsAsRead(): Promise<{ message: string }> {
+    const response = await this.axiosInstance.put('/api/notifications/read-all');
+    return response.data;
+  }
+
+  async deleteNotification(id: number): Promise<{ message: string }> {
+    const response = await this.axiosInstance.delete(`/api/notifications/${id}`);
     return response.data;
   }
 }

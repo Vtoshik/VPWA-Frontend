@@ -50,22 +50,12 @@ import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { Notify, useQuasar, Loading } from 'quasar';
 import { login } from 'src/utils/auth';
-import { useChannels } from 'src/utils/useChannels';
+import { useChannels } from 'src/utils/Channels';
 
 const email = ref('');
 const password = ref('');
 const router = useRouter();
 const $q = useQuasar();
-
-const mockMissedMessages = [
-  { sender: 'Jane Smith', channel: 'General', text: 'Hey everyone! Welcome to the channel' },
-  {
-    sender: 'Bob Wilson',
-    channel: 'General',
-    text: 'Hi @johnd, can you help me with the project?',
-  },
-  { sender: 'Edward Tech', channel: 'Development', text: 'New feature deployed! Please test it.' },
-];
 
 onMounted(async () => {
   if ('Notification' in window && Notification.permission === 'default') {
@@ -99,7 +89,7 @@ const loginUser = async (): Promise<void> => {
 
     Notify.create({
       type: 'positive',
-      message: `Welcome back, ${user.firstName || user.nickName}!`
+      message: `Welcome back, ${user.firstName || user.nickName}!`,
     });
 
     setTimeout(() => {
@@ -110,12 +100,13 @@ const loginUser = async (): Promise<void> => {
 
     const errorMessage =
       error && typeof error === 'object' && 'response' in error
-        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Invalid email or password'
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Invalid email or password'
         : 'An error occurred during login';
 
     Notify.create({
       type: 'negative',
-      message: errorMessage
+      message: errorMessage,
     });
   }
 };
@@ -133,33 +124,6 @@ function showMissedNotifications() {
     console.log('Skipping all notifications - app is visible');
     return;
   }
-
-  mockMissedMessages.forEach((msg, index) => {
-    setTimeout(() => {
-      // Double-check visibility at the time of showing notification
-      if (!document.hidden && $q.appVisible) {
-        console.log(`Skipping notification for "${msg.sender}" - app is visible`);
-        return;
-      }
-
-      const truncatedText = msg.text.length > 50 ? msg.text.substring(0, 50) + '...' : msg.text;
-      const notification = new Notification(`${msg.sender} in #${msg.channel}`, {
-        body: truncatedText,
-        icon: '/icons/favicon-96x96.png',
-        tag: `demo-message-${index}`,
-        requireInteraction: false,
-      });
-
-      setTimeout(() => {
-        notification.close();
-      }, 5000);
-
-      notification.onclick = () => {
-        window.focus();
-        notification.close();
-      };
-    }, index * 1500);
-  });
 }
 
 const goRegister = (): void => {
@@ -168,10 +132,9 @@ const goRegister = (): void => {
 </script>
 
 <style scoped>
-
 .auth-input :deep(.q-field__native) {
-  background: #1e1f22 !important;   /* чорний фон */
-  color: #f2f3f5 !important;        /* білий текст */
+  background: #1e1f22 !important; /* чорний фон */
+  color: #f2f3f5 !important; /* білий текст */
 }
 
 .auth-input :deep(.q-field__control) {

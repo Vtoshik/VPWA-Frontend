@@ -104,13 +104,13 @@ async function registerUser(): Promise<void> {
       password.value,
       nickname.value,
       firstName.value || undefined,
-      lastName.value || undefined
+      lastName.value || undefined,
     );
 
     Loading.hide();
     $q.notify({
       type: 'positive',
-      message: 'Account created successfully! Welcome!'
+      message: 'Account created successfully! Welcome!',
     });
 
     void router.push('/');
@@ -119,12 +119,13 @@ async function registerUser(): Promise<void> {
 
     const errorMessage =
       error && typeof error === 'object' && 'response' in error
-        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message || 'Registration failed'
+        ? (error as { response?: { data?: { message?: string } } }).response?.data?.message ||
+          'Registration failed'
         : 'An error occurred during registration';
 
     $q.notify({
       type: 'negative',
-      message: errorMessage
+      message: errorMessage,
     });
   }
 }
@@ -135,10 +136,9 @@ function goLogin(): void {
 </script>
 
 <style scoped>
-
 .auth-input :deep(.q-field__native) {
-  background: #1e1f22 !important;   /* чорний фон */
-  color: #f2f3f5 !important;        /* білий текст */
+  background: #1e1f22 !important;
+  color: #f2f3f5 !important;
 }
 
 .auth-input :deep(.q-field__control) {
