@@ -2,6 +2,8 @@
 
 IRC-style text communication application (Slack)
 
+**Backend Repository:** [VPWA-Backend](https://github.com/Vtoshik/VPWA-Backend)
+
 ## Screenshots
 
 ### Authentication
